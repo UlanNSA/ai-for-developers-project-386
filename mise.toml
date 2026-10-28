@@ -1,0 +1,90 @@
+[tools]
+java = "temurin-21"
+node = "24"
+
+# Gradle is started via the wrapper jar directly so the same command works in
+# PowerShell, cmd and POSIX shells (no ./gradlew vs gradlew.bat difference).
+
+[tasks.install]
+description = "Install npm dependencies (api, frontend)"
+run = [
+  "npm ci --ignore-scripts --prefix api",
+  "npm ci --ignore-scripts --prefix frontend",
+]
+
+[tasks."api:build"]
+description = "Compile TypeSpec to api/openapi/openapi.yaml"
+depends = ["install"]
+dir = "api"
+run = "npm run build"
+
+[tasks."api:format-check"]
+description = "Check TypeSpec formatting"
+depends = ["install"]
+dir = "api"
+run = "npm run format:check"
+
+[tasks."sdk:generate"]
+description = "Generate the TypeScript SDK from OpenAPI"
+depends = ["api:build"]
+dir = "frontend"
+run = "npm run generate:sdk"
+
+[tasks."frontend:typecheck"]
+depends = ["sdk:generate"]
+dir = "frontend"
+run = "npm run typecheck"
+
+[tasks."frontend:lint"]
+depends = ["sdk:generate"]
+dir = "frontend"
+run = "npm run lint"
+
+[tasks."frontend:test"]
+depends = ["sdk:generate"]
+dir = "frontend"
+run = "npm test"
+
+[tasks."frontend:build"]
+depends = ["sdk:generate"]
+dir = "frontend"
+run = "npm run build"
+
+[tasks."backend:lint"]
+description = "ktlint"
+dir = "backend"
+run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain ktlintCheck"
+
+[tasks."backend:test"]
+description = "JUnit tests"
+dir = "backend"
+run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test"
+
+[tasks."backend:build"]
+description = "Assemble backend"
+dir = "backend"
+run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain assemble"
+
+[tasks."dev:backend"]
+description = "Run Ktor on :8080"
+dir = "backend"
+run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain run"
+
+[tasks."dev:frontend"]
+description = "Run Vite dev server (proxies /api to :8080)"
+depends = ["sdk:generate"]
+dir = "frontend"
+run = "npm run dev"
+
+[tasks.check]
+description = "Everything CI runs: lint, tests, builds"
+depends = [
+  "api:format-check",
+  "frontend:typecheck",
+  "frontend:lint",
+  "frontend:test",
+  "frontend:build",
+  "backend:lint",
+  "backend:test",
+  "backend:build",
+]

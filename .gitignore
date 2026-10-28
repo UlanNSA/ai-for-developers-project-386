@@ -1,0 +1,19 @@
+.idea/
+.vscode/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Generated from api/openapi/openapi.yaml (mise run sdk:generate)
+frontend/src/api/generated/
+
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+backend/build/
+
+# Local overrides
+mise.local.toml
+.env
+.env.*
