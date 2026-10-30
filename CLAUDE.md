@@ -57,3 +57,17 @@ mise Gradle tasks call `java -classpath gradle/wrapper/gradle-wrapper.jar org.gr
 - Developer machine is behind an authenticated HTTP proxy with corporate TLS certs and an internal Nexus mirror. Never disable SSL verification. Keep corporate URLs and credentials out of the repo: committed files must reference only public sources (`mavenCentral()`, `registry.npmjs.org` in lock files, `services.gradle.org` in the wrapper). Local mirror/proxy/truststore settings belong in `~/.gradle` and `~/.npmrc` (see README).
 - After `npm install`, rewrite any mirror host in `package-lock.json` `resolved` URLs back to `https://registry.npmjs.org/` before committing. Use `npm ci --ignore-scripts` for installs.
 - Files use LF (`.gitattributes`, `.editorconfig`); ktlint enforces `.editorconfig`, so CRLF breaks `ktlintCheck`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`UlanNSA/ai-for-developers-project-386`, via `gh`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five roles: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context (`GLOSSARY.md` + `docs/adr/` at the repo root). See `docs/agents/domain.md`.
