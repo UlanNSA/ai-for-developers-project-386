@@ -21,6 +21,10 @@ backend/ (Ktor) implements the contract by hand (no server codegen)
 - Backend routes are not generated from OpenAPI, so keep `backend/src/main/kotlin/calendar/Application.kt` routes/DTOs manually in sync with the `.tsp`. All routes live under `/api`; Vite dev server proxies `/api` to `localhost:8080`, and the SDK is generated with a relative base URL (`baseUrl: false` in `frontend/openapi-ts.config.ts`).
 - Operation names in TypeSpec become SDK function names (`op getHealth` -> `getHealth()`). `@operationId` is not available without adding `@typespec/openapi`.
 
+## Frontend pages
+
+Two routes via `react-router` (`BrowserRouter` in `main.tsx`): `/` (`HomePage`, meeting-type cards) and `/book/:meetingTypeId` (`BookingPage`, placeholder; unknown id shows "Тип встречи не найден"). Meeting types and the owner are static data in `frontend/src/meetingTypes.ts`; no backend endpoint exists for them yet. Domain terms: `GLOSSARY.md`; not-yet-implemented business rules: `docs/domain-rules.md`.
+
 ## Commands
 
 Everything is driven by mise (Java `temurin-21`, Node `24`); CI runs the same command.
@@ -37,7 +41,7 @@ Single tests / direct tools (run inside the subproject):
 ```
 cd backend  && ./gradlew test --tests "calendar.HealthTest"      # Windows: gradlew.bat
 cd backend  && ./gradlew ktlintFormat                            # auto-fix ktlint
-cd frontend && npx vitest run src/App.test.tsx -t "shows backend status"
+cd frontend && npx vitest run src/App.test.tsx -t "home page lists meeting types"
 cd api      && npm run build                                     # regenerate openapi.yaml
 cd frontend && npm run generate:sdk                              # needs api/openapi/openapi.yaml
 ```
