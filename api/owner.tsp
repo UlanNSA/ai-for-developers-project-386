@@ -14,4 +14,4 @@ model Owner {
 
 @get
 @route("/api/owner")
-op getOwner(): Owner;
+op getOwner(): Owner | InternalErrorResponse;

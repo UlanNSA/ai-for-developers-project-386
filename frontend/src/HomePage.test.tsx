@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
+import type { Owner } from './api/generated';
 import { client } from './api/generated/client.gen';
 import { HomePage } from './HomePage';
 
@@ -31,9 +32,9 @@ test('shows a loading state while the owner is being fetched', () => {
 });
 
 test('shows owner name and bio from GET /api/owner', async () => {
-  const fetchMock = vi.fn(async () =>
-    Response.json({ name: 'Анна Петрова', bio: 'Консультирую по продукту', timeZone: 'Asia/Almaty' }),
-  );
+  // Typed against the generated SDK: a contract change breaks type-checking here.
+  const owner: Owner = { name: 'Анна Петрова', bio: 'Консультирую по продукту', timeZone: 'Asia/Almaty' };
+  const fetchMock = vi.fn(async () => Response.json(owner));
   vi.stubGlobal('fetch', fetchMock);
 
   renderHome();
@@ -69,11 +70,13 @@ test('shows the same error when the network request fails', async () => {
   expect(alert.textContent).toContain('Не удалось загрузить данные владельца');
 });
 
-test('meeting types stay visible regardless of the owner state', async () => {
+test('meeting types stay visible while the owner is loading and after it fails', async () => {
   vi.stubGlobal('fetch', async () => Response.json({}, { status: 500 }));
 
   renderHome();
 
+  expect(screen.getByText('Загрузка…')).toBeTruthy();
   expect(screen.getAllByRole('article').length).toBeGreaterThan(0);
   await screen.findByRole('alert');
+  expect(screen.getAllByRole('article').length).toBeGreaterThan(0);
 });
