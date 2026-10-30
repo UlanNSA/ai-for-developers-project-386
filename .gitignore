@@ -1,6 +1,9 @@
 .idea/
 .vscode/
 
+# Claude Code agent worktrees
+.claude/worktrees/
+
 # Node
 node_modules/
 frontend/dist/
