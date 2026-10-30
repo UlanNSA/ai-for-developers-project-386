@@ -15,8 +15,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+  /api/owner:
+    get:
+      operationId: getOwner
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Owner'
 components:
   schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+    FieldError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
     HealthResponse:
       type: object
       required:
@@ -24,6 +59,20 @@ components:
       properties:
         status:
           type: string
+    Owner:
+      type: object
+      required:
+        - name
+        - bio
+        - timeZone
+      properties:
+        name:
+          type: string
+        bio:
+          type: string
+        timeZone:
+          type: string
+          description: IANA time zone id, e.g. Asia/Almaty
 servers:
   - url: http://localhost:8080
     description: Local development

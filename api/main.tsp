@@ -1,4 +1,6 @@
 import "@typespec/http";
+import "./errors.tsp";
+import "./owner.tsp";
 
 using Http;
 

@@ -1,9 +1,23 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
+import { client } from './api/generated/client.gen';
 import { App } from './App';
 
-afterEach(cleanup);
+beforeAll(() => {
+  client.setConfig({ baseUrl: 'http://localhost' });
+});
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', async () =>
+    Response.json({ name: 'Тест', bio: 'О владельце', timeZone: 'Asia/Almaty' }),
+  );
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function renderAt(path: string) {
   render(

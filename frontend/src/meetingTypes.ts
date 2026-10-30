@@ -6,16 +6,6 @@ export interface MeetingType {
   durationMinutes: number;
 }
 
-export interface Owner {
-  name: string;
-  bio: string;
-}
-
-export const owner: Owner = {
-  name: 'Алексей Иванов',
-  bio: 'Помогаю командам с архитектурой и разработкой. Выберите формат встречи и запишитесь в удобное время.',
-};
-
 export const meetingTypes: MeetingType[] = [
   {
     id: 'intro-call',

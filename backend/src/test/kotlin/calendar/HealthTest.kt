@@ -11,7 +11,7 @@ class HealthTest {
     @Test
     fun healthReturnsOk() =
         testApplication {
-            application { module() }
+            application { module(AppConfig.fromEnvironment(emptyMap())) }
 
             val response = client.get("/api/health")
 
