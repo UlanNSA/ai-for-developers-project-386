@@ -10,6 +10,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Fixed guest time zone so grouping by the guest's calendar date is deterministic.
+    env: { TZ: 'Asia/Tbilisi' },
     include: ['src/**/*.test.{ts,tsx}'],
   },
 });

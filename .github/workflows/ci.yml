@@ -1,10 +1,20 @@
 name: ci
 
+# Every push (any branch) and every pull request is checked. A push to a branch
+# with an open pull request fires both events; the concurrency group is keyed by
+# the branch name (head_ref for pull requests, ref_name for pushes), so the
+# duplicate run for the same branch is cancelled and superseded runs never pile up.
 on:
   push:
     branches:
       - '**'
+    tags-ignore:
+      - '**'
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,11 +23,16 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - uses: jdx/mise-action@v5
+      # jdx/mise-action v5.2.5; installs the pinned mise and the tools from mise.toml
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195
+        with:
+          version: 2026.10.25
 
-      - uses: actions/cache@v4
+      # actions/cache v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             ~/.gradle/caches
@@ -25,8 +40,47 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('backend/**/*.gradle.kts', 'backend/gradle/libs.versions.toml', 'backend/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      # Same command as locally: TypeSpec -> OpenAPI -> SDK, lint, tests, builds.
-      - run: mise run check
+      # Contract format + drift, SDK, frontend and backend checks (everything except E2E).
+      - run: mise run check:fast
 
-      - name: Committed OpenAPI must match api/main.tsp
-        run: git diff --exit-code -- api/openapi
+  # Browser E2E: the real Ktor backend in test mode (fixed clock, reset route, loopback only) plus Vite.
+  # Test mode (CALENDAR_TEST_MODE) is set by e2e/playwright.config.ts for this job's local processes only;
+  # nothing is deployed and no public service ever runs with it.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      # jdx/mise-action v5.2.5; installs the pinned mise and the tools from mise.toml
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195
+        with:
+          version: 2026.10.25
+
+      # actions/cache v6.1.0 (Gradle dependencies only; the browser is deliberately not cached)
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('backend/**/*.gradle.kts', 'backend/gradle/libs.versions.toml', 'backend/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # npm dependencies first (mise task `install`), then Chromium plus its Linux system libraries.
+      # `--with-deps` uses sudo and apt, so it is called directly instead of through the cross-platform mise task.
+      - run: mise run install
+      - run: mise exec -- npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      - run: mise run e2e
+
+      # actions/upload-artifact v7.0.2; also on failure, to inspect the report and traces
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

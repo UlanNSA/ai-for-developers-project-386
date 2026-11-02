@@ -1,5 +1,7 @@
 import "@typespec/http";
 import "./errors.tsp";
+import "./meeting-types.tsp";
+import "./bookings.tsp";
 import "./owner.tsp";
 
 using Http;

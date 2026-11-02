@@ -1,22 +1,29 @@
+# Tool versions are pinned exactly so local runs and CI use identical toolchains.
 [tools]
-java = "temurin-21"
-node = "24"
+java = "temurin-21.0.13+9.0.LTS"
+node = "24.22.2"
 
 # Gradle is started via the wrapper jar directly so the same command works in
 # PowerShell, cmd and POSIX shells (no ./gradlew vs gradlew.bat difference).
+#
+# Dependency graph of `check:fast` (mise runs independent tasks in parallel):
+#   install -> api:build -> api:drift -> sdk:generate -> frontend:typecheck -> frontend:build
+#                                                     \-> frontend:lint, frontend:test
+#   api:drift -> backend:check (ktlint + test + assemble in ONE Gradle run)
+#   install -> api:format-check
+# Shared artifacts: api:build only writes api/.tmp/openapi (never the committed
+# contract); sdk:generate is the only writer of frontend/src/api/generated;
+# frontend:typecheck and frontend:build both run `tsc -b`, so they are chained;
+# backend:lint/test/build must not run in parallel with each other (they share
+# backend/build), hence the single backend:check run.
 
 [tasks.install]
-description = "Install npm dependencies (api, frontend)"
+description = "Install npm dependencies (api, frontend, e2e)"
 run = [
   "npm ci --ignore-scripts --prefix api",
   "npm ci --ignore-scripts --prefix frontend",
+  "npm ci --ignore-scripts --prefix e2e",
 ]
-
-[tasks."api:build"]
-description = "Compile TypeSpec to api/openapi/openapi.yaml"
-depends = ["install"]
-dir = "api"
-run = "npm run build"
 
 [tasks."api:format-check"]
 description = "Check TypeSpec formatting"
@@ -24,9 +31,27 @@ depends = ["install"]
 dir = "api"
 run = "npm run format:check"
 
+[tasks."api:build"]
+description = "Compile TypeSpec into a clean scratch dir (api/.tmp/openapi); does not touch the committed contract"
+depends = ["install"]
+dir = "api"
+run = "npm run build:fresh"
+
+[tasks."api:drift"]
+description = "Fail if the committed api/openapi/openapi.yaml differs byte-for-byte from a fresh build"
+depends = ["api:build"]
+dir = "api"
+run = "npm run drift"
+
+[tasks."api:update"]
+description = "Regenerate the committed api/openapi/openapi.yaml from the TypeSpec sources (commit the result)"
+depends = ["install"]
+dir = "api"
+run = "npm run build"
+
 [tasks."sdk:generate"]
 description = "Generate the TypeScript SDK from OpenAPI"
-depends = ["api:build"]
+depends = ["api:drift"]
 dir = "frontend"
 run = "npm run generate:sdk"
 
@@ -36,6 +61,7 @@ dir = "frontend"
 run = "npm run typecheck"
 
 [tasks."frontend:lint"]
+description = "ESLint with --max-warnings 0"
 depends = ["sdk:generate"]
 dir = "frontend"
 run = "npm run lint"
@@ -46,17 +72,21 @@ dir = "frontend"
 run = "npm test"
 
 [tasks."frontend:build"]
-depends = ["sdk:generate"]
+# Chained after typecheck: both run `tsc -b` and would race on its build info.
+depends = ["frontend:typecheck"]
 dir = "frontend"
 run = "npm run build"
 
+# Individual backend tasks for local use. Do not run them in parallel with each
+# other (shared backend/build); `check:fast` uses backend:check instead.
 [tasks."backend:lint"]
 description = "ktlint"
 dir = "backend"
 run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain ktlintCheck"
 
 [tasks."backend:test"]
-description = "JUnit tests"
+description = "JUnit tests (read the committed contract, so it is drift-checked first)"
+depends = ["api:drift"]
 dir = "backend"
 run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain test"
 
@@ -64,6 +94,12 @@ run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.Grad
 description = "Assemble backend"
 dir = "backend"
 run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain assemble"
+
+[tasks."backend:check"]
+description = "ktlint + JUnit tests + assemble in a single Gradle run"
+depends = ["api:drift"]
+dir = "backend"
+run = "java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain ktlintCheck test assemble"
 
 [tasks."dev:backend"]
 description = "Run Ktor on :8080"
@@ -76,15 +112,45 @@ depends = ["sdk:generate"]
 dir = "frontend"
 run = "npm run dev"
 
-[tasks.check]
-description = "Everything CI runs: lint, tests, builds"
+[tasks."check:fast"]
+description = "Everything except E2E: contract (format + drift), SDK, frontend, backend. The CI job `check` runs it; `e2e` is a separate CI job"
 depends = [
   "api:format-check",
-  "frontend:typecheck",
+  "version:check",
+  "e2e:typecheck",
+  "frontend:build",
   "frontend:lint",
   "frontend:test",
-  "frontend:build",
-  "backend:lint",
-  "backend:test",
-  "backend:build",
+  "backend:check",
 ]
+
+[tasks."version:test"]
+description = "Unit tests (node --test, no dependencies) for the version sync check"
+run = "node --test scripts/version-check.test.mjs"
+
+[tasks."version:check"]
+description = "Fail if version.txt, package.json/package-lock.json (api, frontend, e2e) and backend/build.gradle.kts disagree"
+depends = ["version:test"]
+run = "node scripts/version-check.mjs"
+
+[tasks."e2e:typecheck"]
+description = "tsc for the E2E package (Playwright transpiles tests without type checking)"
+depends = ["install"]
+dir = "e2e"
+run = "npm run typecheck"
+
+[tasks."e2e:install"]
+description = "Download the Chromium build for Playwright (no-op when present). Behind a corporate TLS proxy see README"
+depends = ["install"]
+dir = "e2e"
+run = "npx playwright install chromium"
+
+[tasks.e2e]
+description = "Browser E2E (Playwright): starts the real backend in test mode and Vite, runs the tests"
+depends = ["sdk:generate", "e2e:install"]
+dir = "e2e"
+run = "npx playwright test"
+
+[tasks.check]
+description = "Full check: check:fast + browser E2E"
+depends = ["check:fast", "e2e"]

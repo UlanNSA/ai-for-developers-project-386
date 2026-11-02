@@ -16,6 +16,7 @@ class HealthTest {
             val response = client.get("/api/health")
 
             assertEquals(HttpStatusCode.OK, response.status)
+            response.assertMatchesContract()
             assertEquals("""{"status":"ok"}""", response.bodyAsText())
         }
 }

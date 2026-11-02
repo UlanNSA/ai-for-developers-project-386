@@ -16,6 +16,9 @@ frontend/src/api/generated/
 .kotlin/
 backend/build/
 
+# api:build scratch output (fresh contract compiled for the drift check)
+api/.tmp/
+
 # Local overrides
 mise.local.toml
 .env
