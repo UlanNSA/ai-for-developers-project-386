@@ -8,11 +8,14 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.util.UUID
@@ -88,6 +91,37 @@ fun Application.module(
         }
         get("/api/meeting-types") {
             call.respond(meetingTypes.list().map { it.toResponse() })
+        }
+        post("/api/meeting-types") {
+            val body =
+                try {
+                    Json.parseToJsonElement(call.receiveText())
+                } catch (e: SerializationException) {
+                    log.debug("Malformed JSON in request body", e)
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiError(code = "MALFORMED_REQUEST", message = "Некорректный JSON в теле запроса"),
+                    )
+                    return@post
+                }
+            when (val result = validateMeetingTypeInput(body)) {
+                is Validated.Invalid -> {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiError(
+                            code = "VALIDATION_ERROR",
+                            message = "Некорректные данные запроса",
+                            fieldErrors = result.errors,
+                        ),
+                    )
+                }
+
+                is Validated.Valid -> {
+                    val draft = result.value
+                    val created = meetingTypes.add(draft.title, draft.description, draft.durationMinutes)
+                    call.respond(HttpStatusCode.Created, created.toResponse())
+                }
+            }
         }
         get("/api/meeting-types/{id}") {
             // A malformed id is indistinguishable from an unknown one for the client.
