@@ -74,3 +74,11 @@ op createBooking(@body body: CreateBookingRequest):
   | InvalidSlotResponse
   | SlotTakenResponse
   | InternalErrorResponse;
+
+/**
+ * Upcoming bookings of ALL meeting types: `startAt` strictly after the current moment, ascending by
+ * `startAt`. No pagination. Started and past bookings are not returned.
+ */
+@get
+@route("/api/bookings")
+op listBookings(): Booking[] | InternalErrorResponse;

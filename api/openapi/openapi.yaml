@@ -52,6 +52,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateBookingRequest'
+    get:
+      operationId: listBookings
+      description: |-
+        Upcoming bookings of ALL meeting types: `startAt` strictly after the current moment, ascending by
+        `startAt`. No pagination. Started and past bookings are not returned.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+        '500':
+          description: Unhandled server failure; the body never contains internal details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/health:
     get:
       operationId: getHealth
