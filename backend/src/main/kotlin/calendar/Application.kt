@@ -15,6 +15,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.util.UUID
 
 @Serializable
 data class HealthResponse(
@@ -27,6 +28,16 @@ data class OwnerResponse(
     val bio: String,
     val timeZone: String,
 )
+
+@Serializable
+data class MeetingTypeResponse(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    val durationMinutes: Int,
+)
+
+private fun MeetingType.toResponse() = MeetingTypeResponse(id.toString(), title, description, durationMinutes)
 
 @Serializable
 data class FieldError(
@@ -50,7 +61,10 @@ fun main() {
 }
 
 @OptIn(ExperimentalSerializationApi::class)
-fun Application.module(config: AppConfig) {
+fun Application.module(
+    config: AppConfig,
+    meetingTypes: MeetingTypeRepository = InMemoryMeetingTypeRepository.withInitialTypes(),
+) {
     install(ContentNegotiation) {
         // Optional contract fields (e.g. ApiError.fieldErrors) must be absent, not null.
         json(Json { explicitNulls = false })
@@ -71,6 +85,22 @@ fun Application.module(config: AppConfig) {
         get("/api/owner") {
             val owner = config.owner
             call.respond(OwnerResponse(name = owner.name, bio = owner.bio, timeZone = owner.timeZone))
+        }
+        get("/api/meeting-types") {
+            call.respond(meetingTypes.list().map { it.toResponse() })
+        }
+        get("/api/meeting-types/{id}") {
+            // A malformed id is indistinguishable from an unknown one for the client.
+            val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull()
+            val meetingType = id?.let { meetingTypes.find(it) }
+            if (meetingType == null) {
+                call.respond(
+                    HttpStatusCode.NotFound,
+                    ApiError(code = "MEETING_TYPE_NOT_FOUND", message = "Тип встречи не найден"),
+                )
+            } else {
+                call.respond(meetingType.toResponse())
+            }
         }
     }
 }

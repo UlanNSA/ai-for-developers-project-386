@@ -15,6 +15,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+  /api/meeting-types:
+    get:
+      operationId: listMeetingTypes
+      description: All meeting types in creation order.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+        '500':
+          description: Unhandled server failure; the body never contains internal details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/meeting-types/{id}:
+    get:
+      operationId: getMeetingType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '404':
+          description: The meeting type does not exist (an unknown or malformed id gives the same answer).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Unhandled server failure; the body never contains internal details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/owner:
     get:
       operationId: getOwner
@@ -65,6 +113,24 @@ components:
       properties:
         status:
           type: string
+    MeetingType:
+      type: object
+      required:
+        - id
+        - title
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+          description: Duration in minutes (a multiple of 15, 15 to 240).
     Owner:
       type: object
       required:
