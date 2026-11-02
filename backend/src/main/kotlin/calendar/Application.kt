@@ -89,14 +89,14 @@ private val log = LoggerFactory.getLogger("calendar.Application")
 fun main() {
     val config = AppConfig.fromEnvironment()
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
-    embeddedServer(Netty, port = port) { module(config) }.start(wait = true)
+    embeddedServer(Netty, host = config.bindHost, port = port) { module(config) }.start(wait = true)
 }
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.module(
     config: AppConfig,
     meetingTypes: MeetingTypeRepository = InMemoryMeetingTypeRepository.withInitialTypes(),
-    clock: Clock = Clock.systemUTC(),
+    clock: Clock = config.clock,
     bookings: BookingRepository = InMemoryBookingRepository(),
     // Slot calculation reads busy time from here; by default the bookings themselves (tests may override).
     busyTimes: BusyTimeSource = bookings,
@@ -116,6 +116,13 @@ fun Application.module(
         }
     }
     routing {
+        if (config.testMode != null) {
+            // Not part of the API contract: state isolation between browser E2E tests.
+            post("/__test__/reset") {
+                listOf(meetingTypes, bookings).filterIsInstance<Resettable>().forEach { it.reset() }
+                call.respond(HttpStatusCode.NoContent)
+            }
+        }
         get("/api/health") {
             call.respond(HealthResponse(status = "ok"))
         }

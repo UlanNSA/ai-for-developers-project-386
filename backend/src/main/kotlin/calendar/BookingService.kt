@@ -37,9 +37,13 @@ interface BookingRepository : BusyTimeSource {
 }
 
 /** In-memory storage; data is lost on restart. One lock guards every read and write. */
-class InMemoryBookingRepository : BookingRepository {
+class InMemoryBookingRepository :
+    BookingRepository,
+    Resettable {
     private val lock = ReentrantLock()
     private val items = mutableListOf<Booking>()
+
+    override fun reset() = lock.withLock { items.clear() }
 
     override fun list(): List<Booking> = lock.withLock { items.toList() }
 
