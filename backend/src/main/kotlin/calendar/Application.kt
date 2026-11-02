@@ -9,14 +9,11 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
-import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -24,67 +21,6 @@ import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant
 import java.time.format.DateTimeParseException
-
-@Serializable
-data class HealthResponse(
-    val status: String,
-)
-
-@Serializable
-data class OwnerResponse(
-    val name: String,
-    val bio: String,
-    val timeZone: String,
-)
-
-@Serializable
-data class MeetingTypeResponse(
-    val id: String,
-    val title: String,
-    val description: String? = null,
-    val durationMinutes: Int,
-)
-
-@Serializable
-data class BookingResponse(
-    val id: String,
-    val meetingTypeId: String,
-    val startAt: String,
-    val endAt: String,
-    val guestName: String,
-    val guestEmail: String,
-)
-
-private fun Booking.toResponse() =
-    BookingResponse(id.toString(), meetingTypeId.toString(), startAt.toString(), endAt.toString(), guestName, guestEmail)
-
-private fun MeetingType.toResponse() = MeetingTypeResponse(id.toString(), title, description, durationMinutes)
-
-/** Both instants are UTC ISO 8601 with a trailing `Z`. */
-@Serializable
-data class SlotResponse(
-    val startAt: String,
-    val endAt: String,
-)
-
-/** A malformed id is indistinguishable from an unknown one for the client. */
-private fun MeetingTypeRepository.findByParameter(raw: String?): MeetingType? = parseUuid(raw)?.let { find(it) }
-
-private suspend fun ApplicationCall.respondMeetingTypeNotFound() =
-    respond(HttpStatusCode.NotFound, ApiError(code = "MEETING_TYPE_NOT_FOUND", message = "Тип встречи не найден"))
-
-@Serializable
-data class FieldError(
-    val field: String,
-    val message: String,
-)
-
-@Serializable
-data class ApiError(
-    val code: String,
-    val message: String,
-    val fieldErrors: List<FieldError>? = null,
-)
 
 private val log = LoggerFactory.getLogger("calendar.Application")
 
@@ -94,15 +30,17 @@ private val log = LoggerFactory.getLogger("calendar.Application")
  */
 const val TEST_REQUEST_HEADER = "X-Calendar-Test"
 
+private const val CLOCK_REQUEST_MESSAGE = "Ожидается JSON {\"now\": \"<ISO-8601 UTC instant>\"}"
+
 /** Responds 403 and returns false when the test-mode header is missing. */
 private suspend fun ApplicationCall.requireTestHeader(): Boolean {
     if (request.headers[TEST_REQUEST_HEADER] != null) return true
-    respond(
-        HttpStatusCode.Forbidden,
-        ApiError(code = "FORBIDDEN", message = "Test routes require the $TEST_REQUEST_HEADER header"),
-    )
+    respondError(HttpStatusCode.Forbidden, ErrorCodes.FORBIDDEN, "Test routes require the $TEST_REQUEST_HEADER header")
     return false
 }
+
+/** A malformed id is indistinguishable from an unknown one for the client. */
+private fun MeetingTypeRepository.findByParameter(raw: String?): MeetingType? = parseUuid(raw)?.let { find(it) }
 
 fun main() {
     val config = AppConfig.fromEnvironment()
@@ -127,10 +65,7 @@ fun Application.module(
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             log.error("Unhandled exception", cause)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ApiError(code = "INTERNAL_ERROR", message = "Внутренняя ошибка сервера"),
-            )
+            call.respondError(HttpStatusCode.InternalServerError, ErrorCodes.INTERNAL_ERROR, "Внутренняя ошибка сервера")
         }
     }
     routing {
@@ -143,22 +78,17 @@ fun Application.module(
             }
             post("/__test__/clock") {
                 if (!call.requireTestHeader()) return@post
+                val body = call.receiveJsonOrRespond(CLOCK_REQUEST_MESSAGE) ?: return@post
+                val text = (body as? JsonObject)?.get("now")
                 val now =
                     try {
-                        val text = (Json.parseToJsonElement(call.receiveText()) as? JsonObject)?.get("now")
                         (text as? JsonPrimitive)?.takeIf { it.isString }?.content?.let(Instant::parse)
-                    } catch (e: SerializationException) {
-                        log.debug("Malformed JSON in clock request", e)
-                        null
                     } catch (e: DateTimeParseException) {
                         log.debug("Invalid instant in clock request", e)
                         null
                     }
                 if (now == null) {
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiError(code = "MALFORMED_REQUEST", message = "Ожидается JSON {\"now\": \"<ISO-8601 UTC instant>\"}"),
-                    )
+                    call.respondError(HttpStatusCode.BadRequest, ErrorCodes.MALFORMED_REQUEST, CLOCK_REQUEST_MESSAGE)
                 } else {
                     testMode.clock.moveTo(now)
                     call.respond(HttpStatusCode.NoContent)
@@ -176,69 +106,17 @@ fun Application.module(
             call.respond(meetingTypes.list().map { it.toResponse() })
         }
         post("/api/meeting-types") {
-            val body =
-                try {
-                    Json.parseToJsonElement(call.receiveText())
-                } catch (e: SerializationException) {
-                    log.debug("Malformed JSON in request body", e)
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiError(code = "MALFORMED_REQUEST", message = "Некорректный JSON в теле запроса"),
-                    )
-                    return@post
-                }
-            when (val result = validateMeetingTypeInput(body)) {
-                is Validated.Invalid -> {
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiError(
-                            code = "VALIDATION_ERROR",
-                            message = "Некорректные данные запроса",
-                            fieldErrors = result.errors,
-                        ),
-                    )
-                }
-
-                is Validated.Valid -> {
-                    val draft = result.value
-                    val created = meetingTypes.add(draft.title, draft.description, draft.durationMinutes)
-                    call.respond(HttpStatusCode.Created, created.toResponse())
-                }
-            }
+            val body = call.receiveJsonOrRespond() ?: return@post
+            val draft = call.validOrRespond(validateMeetingTypeInput(body)) ?: return@post
+            val created = meetingTypes.add(draft.title, draft.description, draft.durationMinutes)
+            call.respond(HttpStatusCode.Created, created.toResponse())
         }
         get("/api/bookings") {
             call.respond(bookingService.upcoming().map { it.toResponse() })
         }
         post("/api/bookings") {
-            val body =
-                try {
-                    Json.parseToJsonElement(call.receiveText())
-                } catch (e: SerializationException) {
-                    log.debug("Malformed JSON in request body", e)
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        ApiError(code = "MALFORMED_REQUEST", message = "Некорректный JSON в теле запроса"),
-                    )
-                    return@post
-                }
-            val draft =
-                when (val result = validateBookingInput(body)) {
-                    is Validated.Invalid -> {
-                        call.respond(
-                            HttpStatusCode.BadRequest,
-                            ApiError(
-                                code = "VALIDATION_ERROR",
-                                message = "Некорректные данные запроса",
-                                fieldErrors = result.errors,
-                            ),
-                        )
-                        return@post
-                    }
-
-                    is Validated.Valid -> {
-                        result.value
-                    }
-                }
+            val body = call.receiveJsonOrRespond() ?: return@post
+            val draft = call.validOrRespond(validateBookingInput(body)) ?: return@post
             val meetingType = meetingTypes.find(draft.meetingTypeId)
             if (meetingType == null) {
                 call.respondMeetingTypeNotFound()
@@ -250,17 +128,11 @@ fun Application.module(
                 }
 
                 BookingOutcome.InvalidSlot -> {
-                    call.respond(
-                        HttpStatusCode.UnprocessableEntity,
-                        ApiError(code = "INVALID_SLOT", message = "Это время недоступно для записи"),
-                    )
+                    call.respondError(HttpStatusCode.UnprocessableEntity, ErrorCodes.INVALID_SLOT, "Это время недоступно для записи")
                 }
 
                 BookingOutcome.SlotTaken -> {
-                    call.respond(
-                        HttpStatusCode.Conflict,
-                        ApiError(code = "SLOT_TAKEN", message = "Это время уже занято"),
-                    )
+                    call.respondError(HttpStatusCode.Conflict, ErrorCodes.SLOT_TAKEN, "Это время уже занято")
                 }
             }
         }
@@ -279,7 +151,7 @@ fun Application.module(
             } else {
                 val slots =
                     SlotCalculator.calculate(clock, config.schedule, meetingType.durationMinutes, busyTimes.busyRanges())
-                call.respond(slots.map { SlotResponse(it.startAt.toString(), it.endAt.toString()) })
+                call.respond(slots.map { it.toResponse() })
             }
         }
     }
