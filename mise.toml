@@ -116,12 +116,22 @@ run = "npm run dev"
 description = "Everything except E2E: contract (format + drift), SDK, frontend, backend. The CI job `check` runs it; `e2e` is a separate CI job"
 depends = [
   "api:format-check",
+  "version:check",
   "e2e:typecheck",
   "frontend:build",
   "frontend:lint",
   "frontend:test",
   "backend:check",
 ]
+
+[tasks."version:test"]
+description = "Unit tests (node --test, no dependencies) for the version sync check"
+run = "node --test scripts/version-check.test.mjs"
+
+[tasks."version:check"]
+description = "Fail if version.txt, package.json/package-lock.json (api, frontend, e2e) and backend/build.gradle.kts disagree"
+depends = ["version:test"]
+run = "node scripts/version-check.mjs"
 
 [tasks."e2e:typecheck"]
 description = "tsc for the E2E package (Playwright transpiles tests without type checking)"

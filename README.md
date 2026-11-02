@@ -52,6 +52,14 @@ mise run dev:frontend   # Vite на http://localhost:5173, /api проксиру
 
 Задачи `backend:lint`, `backend:test`, `backend:build` не запускайте параллельно (общий `backend/build`); `check:fast` выполняет их одним запуском Gradle (`backend:check`). Если Gradle нужен локальный каталог с зеркалом и кэшем, укажите его переменной окружения `GRADLE_USER_HOME` (в репозиторий такие настройки не попадают). Команды `mise run ...` одинаковы в PowerShell и bash.
 
+### Коммиты и релизы
+
+Коммиты пишутся по [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`, `docs`, `chore`, `ci`, `test`, `refactor`, `!` для breaking changes, с необязательной областью `api`, `backend`, `frontend` или `e2e`, например `feat(frontend): страница записи`. Автоматической проверки (commitlint) нет.
+
+Релизы делает [release-please](https://github.com/googleapis/release-please) (workflow `.github/workflows/release-please.yml`, запуск при push в `master`): одна версия на весь монорепозиторий, один `CHANGELOG.md`, теги `vX.Y.Z`. Пока версия 0.x: `feat` поднимает minor, `fix` — patch, breaking change — тоже minor. Первый релизный PR появляется после первого `feat:`/`fix:` в `master`; слияние PR создаёт тег, GitHub Release и changelog. Образы и иные артефакты не публикуются. Используется стандартный `GITHUB_TOKEN`; владелец включил в настройках репозитория «Allow GitHub Actions to create and approve pull requests» (Settings → Actions → General). Проверки CI на релизном PR могут не запуститься или ждать ручного одобрения.
+
+Версия хранится в `version.txt`, `package.json` и `package-lock.json` пакетов `api`, `frontend`, `e2e` и в `backend/build.gradle.kts` (строка с комментарием `x-release-please-version`). Вручную версии не меняйте; `mise run version:check` (входит в `check:fast`) падает, если они разошлись.
+
 Профиль владельца календаря (`GET /api/owner`) backend берёт из переменных окружения (все необязательные):
 
 | Переменная | По умолчанию |

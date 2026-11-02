@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "bump-minor-pre-major": true,
+  "include-v-in-tag": true,
+  "include-component-in-tag": false,
+  "changelog-path": "CHANGELOG.md",
+  "packages": {
+    ".": {
+      "extra-files": [
+        { "type": "json", "path": "api/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "api/package-lock.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "api/package-lock.json", "jsonpath": "$.packages[''].version" },
+        { "type": "json", "path": "frontend/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "frontend/package-lock.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "frontend/package-lock.json", "jsonpath": "$.packages[''].version" },
+        { "type": "json", "path": "e2e/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "e2e/package-lock.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "e2e/package-lock.json", "jsonpath": "$.packages[''].version" },
+        "backend/build.gradle.kts"
+      ]
+    }
+  }
+}
