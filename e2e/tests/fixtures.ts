@@ -16,3 +16,4 @@ export const test = base.extend<{ resetState: void }>({
 });
 
 export { expect };
+export type { Page } from '@playwright/test';
