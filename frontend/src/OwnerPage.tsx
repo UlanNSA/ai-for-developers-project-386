@@ -99,7 +99,7 @@ function CreateMeetingTypeForm({ onCreated }: CreateFormProps) {
     );
 
   return (
-    <form className="owner-form" onSubmit={(event) => void submit(event)} noValidate>
+    <form className="form" onSubmit={(event) => void submit(event)} noValidate>
       <label>
         Название
         <input value={title} onChange={(event) => setTitle(event.target.value)} {...errorProps('title')} />

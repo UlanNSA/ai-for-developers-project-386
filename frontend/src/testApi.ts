@@ -31,9 +31,14 @@ const notFound = () =>
   Response.json({ code: 'MEETING_TYPE_NOT_FOUND', message: 'Тип встречи не найден' }, { status: 404 });
 
 /** Fetch stub that routes the SDK's requests by path like the real backend would. */
-export function backendStub(items: MeetingType[] = meetingTypes, freeSlots: Slot[] = slots) {
+export function backendStub(
+  items: MeetingType[] = meetingTypes,
+  freeSlots: Slot[] = slots,
+  onCreateBooking: (request: Request) => Response | Promise<Response> = () => new Response(null, { status: 500 }),
+) {
   return async (input: Request | string | URL) => {
     const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+    if (path === '/api/bookings' && input instanceof Request) return onCreateBooking(input);
     if (path === '/api/owner') return Response.json(owner);
     if (path === '/api/meeting-types') return Response.json(items);
     const match = /^\/api\/meeting-types\/([^/]+)(\/slots)?$/.exec(path);

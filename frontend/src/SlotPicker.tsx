@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { listSlots, type Slot } from './api/generated';
 import { useApiResource } from './useApiResource';
 
-const LOCALE = 'ru-RU';
+export const LOCALE = 'ru-RU';
 
 interface Day {
   key: string;
@@ -45,10 +45,17 @@ function groupByDay(slots: Slot[], timeZone: string): Day[] {
   return [...days.values()];
 }
 
-export function SlotPicker({ meetingTypeId }: { meetingTypeId: string }) {
-  const state = useApiResource(() => listSlots({ path: { id: meetingTypeId } }), meetingTypeId);
+interface SlotPickerProps {
+  meetingTypeId: string;
+  /** Changing it reloads the slots (e.g. after a conflict). */
+  reloadKey: number;
+  selectedSlot: string | null;
+  onSelect: (startAt: string | null) => void;
+}
+
+export function SlotPicker({ meetingTypeId, reloadKey, selectedSlot, onSelect }: SlotPickerProps) {
+  const state = useApiResource(() => listSlots({ path: { id: meetingTypeId } }), `${meetingTypeId}:${reloadKey}`);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   if (state.status === 'loading') return <p>Загрузка свободного времени…</p>;
   if (state.status === 'error') {
@@ -72,7 +79,7 @@ export function SlotPicker({ meetingTypeId }: { meetingTypeId: string }) {
               aria-pressed={item.key === selectedDay}
               onClick={() => {
                 setSelectedDay(item.key);
-                setSelectedSlot(null);
+                onSelect(null);
               }}
             >
               {item.label}
@@ -90,7 +97,7 @@ export function SlotPicker({ meetingTypeId }: { meetingTypeId: string }) {
                   type="button"
                   aria-pressed={slot.startAt === selectedSlot}
                   onClick={() => {
-                    setSelectedSlot(slot.startAt);
+                    onSelect(slot.startAt);
                   }}
                 >
                   {slot.time}

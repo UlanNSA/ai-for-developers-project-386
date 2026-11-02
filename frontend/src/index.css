@@ -115,28 +115,28 @@ a {
   padding-left: 20px;
 }
 
-.owner-form {
+.form {
   display: flex;
   flex-direction: column;
   gap: 8px;
   max-width: 480px;
 }
 
-.owner-form label {
+.form label {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.owner-form input,
-.owner-form textarea {
+.form input,
+.form textarea {
   padding: 8px;
   font: inherit;
   border: 1px solid #d1d5db;
   border-radius: 6px;
 }
 
-.owner-form [aria-invalid='true'] {
+.form [aria-invalid='true'] {
   border-color: #b91c1c;
 }
 
@@ -145,13 +145,27 @@ a {
   font-size: 0.9em;
 }
 
-.owner-form .button {
+.form .button {
   align-self: flex-start;
   border: 0;
   cursor: pointer;
 }
 
-.owner-form .button:disabled {
+.form .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.confirmation {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+
+.confirmation dt {
+  color: #6b7280;
+}
+
+.confirmation dd {
+  margin: 0;
 }
