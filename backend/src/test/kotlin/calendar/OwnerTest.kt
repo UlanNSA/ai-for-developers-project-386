@@ -18,6 +18,7 @@ class OwnerTest {
             val response = client.get("/api/owner")
 
             assertEquals(HttpStatusCode.OK, response.status)
+            response.assertMatchesContract()
             assertEquals(
                 """{"name":"Владелец календаря","bio":"Выберите удобное время для встречи","timeZone":"Asia/Almaty"}""",
                 response.bodyAsText(),
@@ -34,6 +35,7 @@ class OwnerTest {
             val response = client.get("/api/owner")
 
             assertEquals(HttpStatusCode.OK, response.status)
+            response.assertMatchesContract()
             assertEquals("""{"name":"Анна","bio":"Привет","timeZone":"Europe/Moscow"}""", response.bodyAsText())
         }
 

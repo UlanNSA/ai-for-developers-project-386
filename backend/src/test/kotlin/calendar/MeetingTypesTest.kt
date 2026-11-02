@@ -33,6 +33,7 @@ class MeetingTypesTest {
             val response = client.get("/api/meeting-types")
 
             assertEquals(HttpStatusCode.OK, response.status)
+            response.assertMatchesContract()
             assertEquals(ContentType.Application.Json, response.contentType()?.withoutParameters())
             val items: JsonArray = Json.parseToJsonElement(response.bodyAsText()).jsonArray
             assertEquals(
@@ -50,7 +51,9 @@ class MeetingTypesTest {
         testApplication {
             startDefault()
 
-            val items = Json.parseToJsonElement(client.get("/api/meeting-types").bodyAsText()).jsonArray
+            val response = client.get("/api/meeting-types")
+            response.assertMatchesContract()
+            val items = Json.parseToJsonElement(response.bodyAsText()).jsonArray
 
             for (item in items) {
                 val obj: JsonObject = item.jsonObject
@@ -71,6 +74,7 @@ class MeetingTypesTest {
             val response = client.get("/api/meeting-types/$id")
 
             assertEquals(HttpStatusCode.OK, response.status)
+            response.assertMatchesContract()
             assertEquals(first, Json.parseToJsonElement(response.bodyAsText()).jsonObject)
         }
 
@@ -82,6 +86,7 @@ class MeetingTypesTest {
             val response = client.get("/api/meeting-types/${UUID.randomUUID()}")
 
             assertEquals(HttpStatusCode.NotFound, response.status)
+            response.assertMatchesContract()
             assertEquals(notFoundBody, response.bodyAsText())
         }
 
@@ -93,6 +98,7 @@ class MeetingTypesTest {
             val response = client.get("/api/meeting-types/not-a-uuid")
 
             assertEquals(HttpStatusCode.NotFound, response.status)
+            response.assertMatchesContract()
             assertEquals(notFoundBody, response.bodyAsText())
         }
 
@@ -103,7 +109,9 @@ class MeetingTypesTest {
             val created = repository.add(title = "Без описания", description = null, durationMinutes = 45)
             application { module(AppConfig.fromEnvironment(emptyMap()), repository) }
 
-            val obj = Json.parseToJsonElement(client.get("/api/meeting-types/${created.id}").bodyAsText()).jsonObject
+            val response = client.get("/api/meeting-types/${created.id}")
+            response.assertMatchesContract()
+            val obj = Json.parseToJsonElement(response.bodyAsText()).jsonObject
 
             assertNull(obj["description"])
             assertEquals(setOf("id", "title", "durationMinutes"), obj.keys)
