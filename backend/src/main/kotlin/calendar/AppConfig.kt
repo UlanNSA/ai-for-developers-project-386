@@ -1,5 +1,6 @@
 package calendar
 
+import java.io.File
 import java.time.Clock
 import java.time.DateTimeException
 import java.time.Instant
@@ -49,6 +50,8 @@ data class AppConfig(
     val schedule: Schedule = Schedule.workWeek(ZoneId.of(owner.timeZone)),
     /** Null in normal operation: the system clock, no reset route, all network interfaces. */
     val testMode: TestMode? = null,
+    /** Directory of the built frontend (`STATIC_DIR`); null serves the API only (local development). */
+    val staticDir: String? = null,
 ) {
     val clock: Clock get() = testMode?.clock ?: Clock.systemUTC()
 
@@ -61,8 +64,9 @@ data class AppConfig(
         const val DEFAULT_OWNER_TIME_ZONE = "Asia/Almaty"
 
         /**
-         * Reads OWNER_* and CALENDAR_* variables; fails fast on an invalid OWNER_TIME_ZONE, on test mode
-         * without a valid CALENDAR_FIXED_NOW and on CALENDAR_FIXED_NOW without test mode.
+         * Reads OWNER_*, CALENDAR_* and STATIC_DIR variables; fails fast on an invalid OWNER_TIME_ZONE, on test
+         * mode without a valid CALENDAR_FIXED_NOW, on CALENDAR_FIXED_NOW without test mode and on a STATIC_DIR
+         * that is not a directory with an index.html.
          */
         fun fromEnvironment(env: Map<String, String> = System.getenv()): AppConfig {
             val timeZone = env["OWNER_TIME_ZONE"] ?: DEFAULT_OWNER_TIME_ZONE
@@ -82,7 +86,16 @@ data class AppConfig(
                         timeZone = timeZone,
                     ),
                 testMode = testModeFromEnvironment(env),
+                staticDir = staticDirFromEnvironment(env),
             )
+        }
+
+        private fun staticDirFromEnvironment(env: Map<String, String>): String? {
+            val dir = env["STATIC_DIR"]?.takeIf { it.isNotBlank() } ?: return null
+            val directory = File(dir)
+            require(directory.isDirectory) { "STATIC_DIR is not a directory: '$dir'" }
+            require(File(directory, "index.html").isFile) { "STATIC_DIR '$dir' has no index.html (is the frontend built?)" }
+            return dir
         }
 
         private fun testModeFromEnvironment(env: Map<String, String>): TestMode? {

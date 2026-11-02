@@ -84,3 +84,65 @@ jobs:
             e2e/test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  # The production image: builds the Dockerfile, runs it as Hexlet/Render will (PORT=8080, memory limited like
+  # Render Free) and smoke-checks it. The booking scenario creates fictional data in the throwaway container
+  # only; it is never run against the public deployment.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      # jdx/mise-action v5.2.5; only Node is needed (to run scripts/smoke.mjs)
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195
+        with:
+          version: 2026.10.25
+          install_args: node
+
+      - name: Build the image
+        run: docker build --tag calendar:ci .
+
+      - name: Run the container (PORT=8080, 512 MB like Render Free)
+        run: docker run --detach --name calendar --memory 512m --publish 8080:8080 --env PORT=8080 calendar:ci
+
+      - name: The app answers on PORT and GET / returns 200
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/ || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          echo "GET / -> $code"
+          test "$code" = "200"
+          test "$(curl --silent --fail http://localhost:8080/api/health)" = '{"status":"ok"}'
+
+      - name: The container does not run as root
+        run: |
+          uid=$(docker exec calendar id -u)
+          echo "container uid: $uid"
+          test "$uid" != "0"
+
+      - name: Smoke test with the booking scenario (fictional data, throwaway container)
+        run: node scripts/smoke.mjs http://localhost:8080 --booking --wait 30
+
+      - name: The JVM stays inside the 512 MB limit
+        run: |
+          docker stats --no-stream --format 'memory: {{.MemUsage}}' calendar
+          test "$(docker inspect --format '{{.State.OOMKilled}}' calendar)" = "false"
+          test "$(docker inspect --format '{{.State.Running}}' calendar)" = "true"
+
+      - name: The app honours another PORT
+        run: |
+          docker run --detach --name calendar-9090 --publish 9090:9090 --env PORT=9090 calendar:ci
+          for i in $(seq 1 60); do
+            curl --silent --fail --output /dev/null http://localhost:9090/ && break
+            sleep 2
+          done
+          test "$(curl --silent --fail http://localhost:9090/api/health)" = '{"status":"ok"}'
+
+      - name: Container logs
+        if: ${{ always() }}
+        run: |
+          docker logs calendar || true
+          docker logs calendar-9090 || true

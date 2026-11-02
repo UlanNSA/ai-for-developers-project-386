@@ -117,6 +117,7 @@ description = "Everything except E2E: contract (format + drift), SDK, frontend, 
 depends = [
   "api:format-check",
   "version:check",
+  "smoke:test",
   "e2e:typecheck",
   "frontend:build",
   "frontend:lint",
@@ -132,6 +133,14 @@ run = "node --test scripts/version-check.test.mjs"
 description = "Fail if version.txt, package.json/package-lock.json (api, frontend, e2e) and backend/build.gradle.kts disagree"
 depends = ["version:test"]
 run = "node scripts/version-check.mjs"
+
+[tasks."smoke:test"]
+description = "Unit tests (node --test, no dependencies) for the smoke script scripts/smoke.mjs"
+run = "node --test scripts/smoke.test.mjs"
+
+[tasks.smoke]
+description = "Smoke-check a running app: mise run smoke -- <url> [--booking] [--wait <s>]. --booking creates FICTIONAL data (never run it automatically against the public deployment)"
+run = "node scripts/smoke.mjs"
 
 [tasks."e2e:typecheck"]
 description = "tsc for the E2E package (Playwright transpiles tests without type checking)"
