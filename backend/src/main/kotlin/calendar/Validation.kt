@@ -49,8 +49,11 @@ data class BookingDraft(
     val guestEmail: String,
 )
 
-/** Number of Unicode code points after trimming. */
-fun trimmedLength(text: String): Int = text.trim().let { it.codePointCount(0, it.length) }
+/** Number of Unicode code points (not UTF-16 units) of [text], which [ObjectReader.text] has already trimmed. */
+private fun codePointLength(text: String): Int = text.codePointCount(0, text.length)
+
+/** Number of Unicode code points after trimming, for text that has not been trimmed yet. */
+fun trimmedLength(text: String): Int = codePointLength(text.trim())
 
 /** Collects field errors while reading typed fields from a strictly parsed JSON object. */
 private class ObjectReader(
@@ -106,12 +109,12 @@ fun validateMeetingTypeInput(body: JsonElement): Validated<MeetingTypeDraft> {
     reader.rejectUnknown(setOf("title", "description", "durationMinutes"))
 
     val title = reader.text("title", required = true)
-    if (title != null && trimmedLength(title) !in Limits.TITLE_MIN..Limits.TITLE_MAX) {
+    if (title != null && codePointLength(title) !in Limits.TITLE_MIN..Limits.TITLE_MAX) {
         reader.fail("title", "Название: от ${Limits.TITLE_MIN} до ${Limits.TITLE_MAX} символов")
     }
 
     val description = reader.text("description", required = false)
-    if (description != null && trimmedLength(description) > Limits.DESCRIPTION_MAX) {
+    if (description != null && codePointLength(description) > Limits.DESCRIPTION_MAX) {
         reader.fail("description", "Описание: не более ${Limits.DESCRIPTION_MAX} символов")
     }
 
@@ -180,12 +183,12 @@ fun validateBookingInput(body: JsonElement): Validated<BookingDraft> {
         }
 
     val name = reader.text("guestName", required = true)
-    if (name != null && trimmedLength(name) !in Limits.GUEST_NAME_MIN..Limits.GUEST_NAME_MAX) {
+    if (name != null && codePointLength(name) !in Limits.GUEST_NAME_MIN..Limits.GUEST_NAME_MAX) {
         reader.fail("guestName", "Имя: от ${Limits.GUEST_NAME_MIN} до ${Limits.GUEST_NAME_MAX} символов")
     }
 
     val email = reader.text("guestEmail", required = true)
-    if (email != null && (trimmedLength(email) > Limits.EMAIL_MAX || !isSimpleEmail(email))) {
+    if (email != null && (codePointLength(email) > Limits.EMAIL_MAX || !isSimpleEmail(email))) {
         reader.fail("guestEmail", "Email: адрес вида name@example.com, не более ${Limits.EMAIL_MAX} символов")
     }
 
