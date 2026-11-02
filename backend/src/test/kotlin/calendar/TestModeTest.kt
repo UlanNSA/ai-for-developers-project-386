@@ -122,6 +122,84 @@ class TestModeTest {
             )
         }
 
+    private suspend fun ApplicationTestBuilder.firstTypeId(): String =
+        Json
+            .parseToJsonElement(client.get("/api/meeting-types").bodyAsText())
+            .jsonArray
+            .first()
+            .jsonObject["id"]!!
+            .jsonPrimitive.content
+
+    private suspend fun ApplicationTestBuilder.firstSlotStart(): String =
+        Json
+            .parseToJsonElement(client.get("/api/meeting-types/${firstTypeId()}/slots").bodyAsText())
+            .jsonArray
+            .first()
+            .jsonObject["startAt"]!!
+            .jsonPrimitive.content
+
+    private suspend fun ApplicationTestBuilder.setClock(body: String) =
+        client.post("/__test__/clock") {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+
+    @Test
+    fun clockRouteDoesNotExistInNormalMode() =
+        testApplication {
+            application { module(AppConfig.fromEnvironment(emptyMap())) }
+
+            assertEquals(HttpStatusCode.NotFound, setClock("""{"now":"2026-11-03T06:00:00Z"}""").status)
+        }
+
+    @Test
+    fun clockRouteIsNotInTheContract() {
+        val contract = java.io.File(requireNotNull(System.getProperty("openapi.spec"))).readText()
+
+        assertTrue("/clock" !in contract)
+    }
+
+    @Test
+    fun clockRouteMovesTheFixedNowAndResetRestoresIt() =
+        testApplication {
+            application { module(AppConfig.fromEnvironment(testEnv)) }
+            assertEquals("2026-11-02T06:15:00Z", firstSlotStart())
+
+            // Tuesday 2026-11-03 11:00 Almaty: the first slot is 11:15 that day.
+            assertEquals(HttpStatusCode.NoContent, setClock("""{"now":"2026-11-03T06:00:00Z"}""").status)
+            assertEquals("2026-11-03T06:15:00Z", firstSlotStart())
+
+            assertEquals(HttpStatusCode.NoContent, client.post("/__test__/reset").status)
+            assertEquals("2026-11-02T06:15:00Z", firstSlotStart())
+        }
+
+    @Test
+    fun clockRouteRejectsInvalidInputAndKeepsTheClock() =
+        testApplication {
+            application { module(AppConfig.fromEnvironment(testEnv)) }
+
+            listOf("""{"now":"yesterday"}""", """{}""", """{"now":42}""", "not json").forEach { body ->
+                assertEquals(HttpStatusCode.BadRequest, setClock(body).status, body)
+            }
+            assertEquals("2026-11-02T06:15:00Z", firstSlotStart())
+        }
+
+    @Test
+    fun movedClockHidesAStartedBookingFromTheOwnersList() =
+        testApplication {
+            application { module(AppConfig.fromEnvironment(testEnv)) }
+            val start = firstSlotStart()
+            client.post("/api/bookings") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"meetingTypeId":"${firstTypeId()}","startAt":"$start","guestName":"Гость","guestEmail":"g@example.com"}""")
+            }
+            assertEquals(1, Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray.size)
+
+            setClock("""{"now":"$start"}""")
+
+            assertEquals(0, Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray.size)
+        }
+
     @Test
     fun testModeBindsToLoopbackOnly() {
         assertEquals("127.0.0.1", AppConfig.fromEnvironment(testEnv).bindHost)

@@ -13,10 +13,35 @@ data class OwnerConfig(
     val timeZone: String,
 )
 
-/** Settings that exist only when `CALENDAR_TEST_MODE=true` (browser E2E): a frozen clock and the reset route. */
-data class TestMode(
-    val fixedNow: Instant,
-)
+/** A clock frozen at [initial]; test mode may move it (`POST /__test__/clock`), reset puts it back. */
+class AdjustableClock(
+    private val initial: Instant,
+    private val zone: ZoneId = ZoneOffset.UTC,
+) : Clock(),
+    Resettable {
+    @Volatile private var now: Instant = initial
+
+    override fun getZone(): ZoneId = zone
+
+    override fun withZone(zone: ZoneId): Clock = AdjustableClock(initial, zone).also { it.now = now }
+
+    override fun instant(): Instant = now
+
+    fun moveTo(instant: Instant) {
+        now = instant
+    }
+
+    override fun reset() {
+        now = initial
+    }
+}
+
+/** Settings that exist only when `CALENDAR_TEST_MODE=true` (browser E2E): an adjustable frozen clock and test routes. */
+class TestMode(
+    fixedNow: Instant,
+) {
+    val clock = AdjustableClock(fixedNow)
+}
 
 data class AppConfig(
     val owner: OwnerConfig,
@@ -25,7 +50,7 @@ data class AppConfig(
     /** Null in normal operation: the system clock, no reset route, all network interfaces. */
     val testMode: TestMode? = null,
 ) {
-    val clock: Clock get() = testMode?.let { Clock.fixed(it.fixedNow, ZoneOffset.UTC) } ?: Clock.systemUTC()
+    val clock: Clock get() = testMode?.clock ?: Clock.systemUTC()
 
     /** Test mode listens on loopback only, so the reset route is never reachable from the network. */
     val bindHost: String get() = if (testMode != null) "127.0.0.1" else "0.0.0.0"

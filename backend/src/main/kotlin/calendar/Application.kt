@@ -18,8 +18,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
 import java.time.Clock
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import java.util.UUID
 
 @Serializable
@@ -116,11 +120,33 @@ fun Application.module(
         }
     }
     routing {
-        if (config.testMode != null) {
-            // Not part of the API contract: state isolation between browser E2E tests.
+        config.testMode?.let { testMode ->
+            // Not part of the API contract: state isolation and time control for browser E2E tests.
             post("/__test__/reset") {
-                listOf(meetingTypes, bookings).filterIsInstance<Resettable>().forEach { it.reset() }
+                listOf(meetingTypes, bookings, testMode.clock).filterIsInstance<Resettable>().forEach { it.reset() }
                 call.respond(HttpStatusCode.NoContent)
+            }
+            post("/__test__/clock") {
+                val now =
+                    try {
+                        val text = (Json.parseToJsonElement(call.receiveText()) as? JsonObject)?.get("now")
+                        (text as? JsonPrimitive)?.takeIf { it.isString }?.content?.let(Instant::parse)
+                    } catch (e: SerializationException) {
+                        log.debug("Malformed JSON in clock request", e)
+                        null
+                    } catch (e: DateTimeParseException) {
+                        log.debug("Invalid instant in clock request", e)
+                        null
+                    }
+                if (now == null) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiError(code = "MALFORMED_REQUEST", message = "Ожидается JSON {\"now\": \"<ISO-8601 UTC instant>\"}"),
+                    )
+                } else {
+                    testMode.clock.moveTo(now)
+                    call.respond(HttpStatusCode.NoContent)
+                }
             }
         }
         get("/api/health") {
