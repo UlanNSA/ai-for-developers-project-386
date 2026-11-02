@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant
 import java.time.format.DateTimeParseException
-import java.util.UUID
 
 @Serializable
 data class HealthResponse(
@@ -69,8 +68,7 @@ data class SlotResponse(
 )
 
 /** A malformed id is indistinguishable from an unknown one for the client. */
-private fun MeetingTypeRepository.findByParameter(raw: String?): MeetingType? =
-    runCatching { UUID.fromString(raw) }.getOrNull()?.let { find(it) }
+private fun MeetingTypeRepository.findByParameter(raw: String?): MeetingType? = parseUuid(raw)?.let { find(it) }
 
 private suspend fun ApplicationCall.respondMeetingTypeNotFound() =
     respond(HttpStatusCode.NotFound, ApiError(code = "MEETING_TYPE_NOT_FOUND", message = "Тип встречи не найден"))

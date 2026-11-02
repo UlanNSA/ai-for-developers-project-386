@@ -127,11 +127,22 @@ fun validateMeetingTypeInput(body: JsonElement): Validated<MeetingTypeDraft> {
     return Validated.Valid(MeetingTypeDraft(title, description?.ifEmpty { null }, duration))
 }
 
-/** Simple email format: exactly one `@`, non-empty local part, a domain containing a dot. */
+/**
+ * Simple email format: no whitespace anywhere, exactly one `@`, a non-empty local part and a domain of
+ * non-empty labels separated by dots with at least one dot (so no leading, trailing or doubled dot).
+ */
 fun isSimpleEmail(email: String): Boolean {
+    if (email.any { Character.isWhitespace(it) || Character.isSpaceChar(it) }) return false
     val parts = email.split('@')
-    return parts.size == 2 && parts[0].isNotEmpty() && parts[1].isNotEmpty() && '.' in parts[1]
+    if (parts.size != 2 || parts[0].isEmpty()) return false
+    val labels = parts[1].split('.')
+    return labels.size >= 2 && labels.none { it.isEmpty() }
 }
+
+private val CANONICAL_UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+/** Strict UUID parsing: only the canonical 8-4-4-4-12 hex form (`UUID.fromString` also accepts `1-1-1-1-1`). */
+fun parseUuid(text: String?): UUID? = text?.takeIf { CANONICAL_UUID.matches(it) }?.let(UUID::fromString)
 
 /** Strict: only an instant written in UTC with a trailing `Z`; offsets are rejected. */
 private fun parseUtcInstant(text: String): Instant? =
@@ -154,9 +165,7 @@ fun validateBookingInput(body: JsonElement): Validated<BookingDraft> {
 
     val meetingTypeId =
         reader.text("meetingTypeId", required = true)?.let {
-            try {
-                UUID.fromString(it)
-            } catch (e: IllegalArgumentException) {
+            parseUuid(it) ?: run {
                 reader.fail("meetingTypeId", "Должно быть UUID")
                 null
             }

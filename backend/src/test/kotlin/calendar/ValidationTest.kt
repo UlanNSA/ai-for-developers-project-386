@@ -154,6 +154,38 @@ class ValidationTest {
     }
 
     @Test
+    fun meetingTypeIdMustBeACanonicalUuid() {
+        for (bad in listOf("1-1-1-1-1", "not-a-uuid", "", "11111111111141118111111111111111", " $typeId x", "$typeId-0")) {
+            val result =
+                validateBookingInput(
+                    Json.parseToJsonElement(
+                        """{"meetingTypeId":"$bad","startAt":"2026-11-02T04:00:00Z","guestName":"A","guestEmail":"a@b.c"}""",
+                    ),
+                )
+            assertBookingInvalid(result, "meetingTypeId")
+        }
+        assertTrue(booking() is Validated.Valid)
+    }
+
+    @Test
+    fun emailRejectsEmptyDomainLabelsAndWhitespace() {
+        for (bad in listOf("a@.", "a@b.", "a@.b", "a@b..c", "a b@x.y", "a@x .y", "a\tb@x.y", "a@x.y${160.toChar()}z")) {
+            assertBookingInvalid(booking(email = bad), "guestEmail")
+        }
+        for (good in listOf("a@b.c", "a.b+tag@sub.example.com")) {
+            assertTrue(booking(email = good) is Validated.Valid, good)
+        }
+    }
+
+    @Test
+    fun emailLengthBoundaryCountsCodePoints() {
+        // 254 code points are valid even when that is more than 254 UTF-16 units; 255 are not.
+        val tail = "@b.c"
+        assertTrue(booking(email = smile.repeat(254 - tail.length) + tail) is Validated.Valid)
+        assertBookingInvalid(booking(email = smile.repeat(255 - tail.length) + tail), "guestEmail")
+    }
+
+    @Test
     fun emailCaseIsPreservedAndSurroundingSpacesTrimmed() {
         val result = booking(email = "  Anna@Example.COM ")
         assertTrue(result is Validated.Valid)

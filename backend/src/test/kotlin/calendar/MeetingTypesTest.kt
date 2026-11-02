@@ -103,6 +103,19 @@ class MeetingTypesTest {
         }
 
     @Test
+    fun getLenientlyFormattedIdIsNotFound() =
+        testApplication {
+            startDefault()
+
+            // UUID.fromString accepts this; the canonical 8-4-4-4-12 form is required.
+            val response = client.get("/api/meeting-types/1-1-1-1-1")
+
+            assertEquals(HttpStatusCode.NotFound, response.status)
+            response.assertMatchesContract()
+            assertEquals(notFoundBody, response.bodyAsText())
+        }
+
+    @Test
     fun descriptionIsOmittedWhenAbsent() =
         testApplication {
             val repository = InMemoryMeetingTypeRepository()

@@ -119,4 +119,16 @@ class SlotsTest {
             response.assertMatchesContract()
             assertEquals(notFoundBody, response.bodyAsText())
         }
+
+    @Test
+    fun lenientlyFormattedMeetingTypeIdIsNotFound() =
+        testApplication {
+            start()
+
+            val response = client.get("/api/meeting-types/1-1-1-1-1/slots")
+
+            assertEquals(HttpStatusCode.NotFound, response.status)
+            response.assertMatchesContract()
+            assertEquals(notFoundBody, response.bodyAsText())
+        }
 }
