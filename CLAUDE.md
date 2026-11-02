@@ -35,10 +35,13 @@ Routes via `react-router` (`BrowserRouter` in `main.tsx`): `/owner` (`OwnerPage`
 
 ## Commands
 
-Everything is driven by mise (Java `temurin-21`, Node `24`); CI runs the same command.
+Everything is driven by mise (Java `temurin-21.0.13+9.0.LTS`, Node `24.22.2`, pinned exactly in `mise.toml`; CI pins mise `2026.10.25` and runs only `mise run check:fast`). Install: `winget install jdx.mise` (PowerShell) then `mise trust && mise install`. Commands are identical in PowerShell and bash. For Gradle with a local mirror/cache set `GRADLE_USER_HOME` in your own environment, never in committed files.
 
 ```
-mise run check            # full pipeline: api format, SDK gen, frontend typecheck/lint/test/build, backend ktlint/test/assemble
+mise run check:fast       # everything except E2E: api format, api drift, SDK gen, frontend typecheck/lint (--max-warnings 0)/test/build, backend ktlint/test/assemble
+mise run check            # full set; currently an alias of check:fast (E2E task T9 will be added to it)
+mise run api:drift        # fresh contract build in api/.tmp/openapi (gitignored) must equal committed api/openapi/openapi.yaml byte-for-byte
+mise run api:update       # regenerate and overwrite the committed api/openapi/openapi.yaml (commit it with the .tsp change)
 mise run dev:backend      # Ktor on :8080
 mise run dev:frontend     # Vite on :5173
 mise tasks                # list all tasks
@@ -50,11 +53,11 @@ Single tests / direct tools (run inside the subproject):
 cd backend  && ./gradlew test --tests "calendar.HealthTest"      # Windows: gradlew.bat
 cd backend  && ./gradlew ktlintFormat                            # auto-fix ktlint
 cd frontend && npx vitest run src/App.test.tsx -t "home page lists meeting types"
-cd api      && npm run build                                     # regenerate openapi.yaml
+cd api      && npm run build                                     # regenerate committed openapi.yaml (= mise run api:update)
 cd frontend && npm run generate:sdk                              # needs api/openapi/openapi.yaml
 ```
 
-mise Gradle tasks call `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain` instead of `./gradlew` so they work in PowerShell, cmd and POSIX shells alike.
+mise Gradle tasks call `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain` instead of `./gradlew` so they work in PowerShell, cmd and POSIX shells alike. Task graph: `api:build` (fresh scratch dir) -> `api:drift` -> `sdk:generate` -> frontend tasks; `backend:check` (one Gradle run of ktlintCheck test assemble) depends on `api:drift`. Do not run `backend:lint/test/build` in parallel: they share `backend/build` and race (observed with three parallel Gradle runs).
 
 ## Commits
 

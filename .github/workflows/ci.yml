@@ -1,10 +1,17 @@
 name: ci
 
+# One run per event: pushes only on master (feature branches are covered by
+# their pull_request run), plus every pull request. The concurrency group also
+# cancels superseded runs of the same ref.
 on:
   push:
     branches:
-      - '**'
+      - master
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,11 +20,16 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - uses: jdx/mise-action@v5
+      # jdx/mise-action v5.2.5; installs the pinned mise and the tools from mise.toml
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195
+        with:
+          version: 2026.10.25
 
-      - uses: actions/cache@v4
+      # actions/cache v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             ~/.gradle/caches
@@ -25,8 +37,5 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('backend/**/*.gradle.kts', 'backend/gradle/libs.versions.toml', 'backend/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      # Same command as locally: TypeSpec -> OpenAPI -> SDK, lint, tests, builds.
-      - run: mise run check
-
-      - name: Committed OpenAPI must match api/main.tsp
-        run: git diff --exit-code -- api/openapi
+      # Contract format + drift, SDK, frontend and backend checks (everything except E2E).
+      - run: mise run check:fast

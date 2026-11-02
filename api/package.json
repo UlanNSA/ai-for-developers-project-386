@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsp compile .",
+    "build:fresh": "node scripts/clean-fresh.mjs && tsp compile . --option \"@typespec/openapi3.emitter-output-dir={project-root}/.tmp/openapi\"",
+    "drift": "node scripts/check-drift.mjs",
     "format": "tsp format \"**/*.tsp\"",
     "format:check": "tsp format --check \"**/*.tsp\""
   },

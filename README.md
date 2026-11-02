@@ -38,12 +38,17 @@ mise install
 ## Использование
 
 ```bash
-mise run check          # всё, что запускает CI: TypeSpec → OpenAPI → SDK, lint, тесты, сборки
+mise run check:fast     # всё, что запускает CI: формат TypeSpec, дрейф контракта, SDK, lint (--max-warnings 0), тесты, сборки
+mise run check          # полный набор; пока равен check:fast (E2E добавится отдельной задачей)
+mise run api:drift      # контракт, собранный заново, должен побайтно совпадать с api/openapi/openapi.yaml
+mise run api:update     # пересобрать и перезаписать api/openapi/openapi.yaml (закоммитьте результат)
 mise run dev:backend    # Ktor на http://localhost:8080 (GET /api/health)
 mise run dev:frontend   # Vite на http://localhost:5173, /api проксируется на backend
 ```
 
-Отдельные задачи: `mise tasks`.
+Отдельные задачи: `mise tasks`. Версии Java (`temurin-21.0.13+9.0.LTS`) и Node.js (`24.22.2`) зафиксированы в `mise.toml`; CI запускает только `mise run check:fast` (mise `2026.10.25`).
+
+Задачи `backend:lint`, `backend:test`, `backend:build` не запускайте параллельно (общий `backend/build`); `check:fast` выполняет их одним запуском Gradle (`backend:check`). Если Gradle нужен локальный каталог с зеркалом и кэшем, укажите его переменной окружения `GRADLE_USER_HOME` (в репозиторий такие настройки не попадают). Команды `mise run ...` одинаковы в PowerShell и bash.
 
 Профиль владельца календаря (`GET /api/owner`) backend берёт из переменных окружения (все необязательные):
 
