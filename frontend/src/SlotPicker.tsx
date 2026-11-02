@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listSlots, type Slot } from './api/generated';
 import { useApiResource } from './useApiResource';
 
@@ -57,6 +57,14 @@ export function SlotPicker({ meetingTypeId, reloadKey, selectedSlot, onSelect }:
   const state = useApiResource(() => listSlots({ path: { id: meetingTypeId } }), `${meetingTypeId}:${reloadKey}`);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
+  // A selected slot that is no longer offered (e.g. after a conflict reload) is cleared.
+  const loadedSlots = state.status === 'ready' ? state.data : null;
+  useEffect(() => {
+    if (loadedSlots && selectedSlot !== null && !loadedSlots.some((slot) => slot.startAt === selectedSlot)) {
+      onSelect(null);
+    }
+  }, [loadedSlots, selectedSlot, onSelect]);
+
   if (state.status === 'loading') return <p>Загрузка свободного времени…</p>;
   if (state.status === 'error') {
     return <p role="alert">Не удалось загрузить свободное время. Попробуйте обновить страницу позже.</p>;
@@ -64,6 +72,8 @@ export function SlotPicker({ meetingTypeId, reloadKey, selectedSlot, onSelect }:
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const days = groupByDay(state.data, timeZone);
+  // A selected day that disappeared from the reloaded slots is forgotten, so it is not revived if it returns.
+  if (selectedDay !== null && !days.some((item) => item.key === selectedDay)) setSelectedDay(null);
   if (days.length === 0) return <p>Свободного времени нет</p>;
 
   const day = days.find((item) => item.key === selectedDay);
