@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listSlots, type Slot } from './api/generated';
+import { dateFormatter, timeFormatter } from './format';
 import { useApiResource } from './useApiResource';
-
-export const LOCALE = 'ru-RU';
 
 interface Day {
   key: string;
@@ -18,18 +17,8 @@ function groupByDay(slots: Slot[], timeZone: string): Day[] {
     month: '2-digit',
     day: '2-digit',
   });
-  const dayLabel = new Intl.DateTimeFormat(LOCALE, {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-  });
-  const time = new Intl.DateTimeFormat(LOCALE, {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  });
+  const dayLabel = dateFormatter(timeZone, { weekday: 'short' });
+  const time = timeFormatter(timeZone);
   const days = new Map<string, Day>();
   for (const slot of slots) {
     const start = new Date(slot.startAt);

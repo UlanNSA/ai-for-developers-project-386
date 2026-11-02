@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { createMeetingType, listMeetingTypes, type MeetingType } from './api/generated';
+import { fieldErrorView, type FieldMessages, placeFieldErrors } from './fieldErrors';
 import { type ResourceState, useApiResource } from './useApiResource';
 import { UpcomingBookings } from './UpcomingBookings';
 
@@ -8,7 +9,6 @@ const WARNING =
 
 const FIELDS = ['title', 'description', 'durationMinutes'] as const;
 type Field = (typeof FIELDS)[number];
-type FieldMessages = Partial<Record<Field, string>>;
 
 function MeetingTypeList({ state }: { state: ResourceState<MeetingType[]> }) {
   if (state.status === 'loading') {
@@ -45,7 +45,7 @@ function CreateMeetingTypeForm({ onCreated }: CreateFormProps) {
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<FieldMessages>({});
+  const [fieldErrors, setFieldErrors] = useState<FieldMessages<Field>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const submit = async (event: FormEvent) => {
@@ -68,17 +68,11 @@ function CreateMeetingTypeForm({ onCreated }: CreateFormProps) {
         onCreated();
         return;
       }
-      const messages: FieldMessages = {};
-      let unplaced = false;
-      for (const fieldError of error?.fieldErrors ?? []) {
-        if (isField(fieldError.field)) {
-          messages[fieldError.field] = fieldError.message;
-        } else {
-          unplaced = true;
-        }
-      }
+      const { messages, needsGeneralMessage } = placeFieldErrors(error?.fieldErrors, (name) =>
+        isField(name) ? name : undefined,
+      );
       setFieldErrors(messages);
-      if (Object.keys(messages).length === 0 || unplaced) {
+      if (needsGeneralMessage) {
         setGeneralError('Не удалось создать тип встречи. Проверьте данные и попробуйте ещё раз.');
       }
     } catch {
@@ -88,16 +82,7 @@ function CreateMeetingTypeForm({ onCreated }: CreateFormProps) {
     }
   };
 
-  const errorProps = (field: Field) => ({
-    'aria-invalid': fieldErrors[field] ? true : undefined,
-    'aria-describedby': fieldErrors[field] ? `${field}-error` : undefined,
-  });
-  const errorText = (field: Field) =>
-    fieldErrors[field] && (
-      <span id={`${field}-error`} className="field-error">
-        {fieldErrors[field]}
-      </span>
-    );
+  const { inputProps: errorProps, message: errorText } = fieldErrorView(fieldErrors);
 
   return (
     <form className="form" onSubmit={(event) => void submit(event)} noValidate>

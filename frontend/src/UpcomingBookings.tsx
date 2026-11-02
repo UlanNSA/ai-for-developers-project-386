@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { type Booking, getOwner, listBookings, type MeetingType } from './api/generated';
+import { dateFormatter, timeFormatter } from './format';
 import { type ResourceState, useApiResource } from './useApiResource';
 
 interface Props {
@@ -9,19 +10,8 @@ interface Props {
 
 function formatters(timeZone: string) {
   return {
-    date: new Intl.DateTimeFormat('ru-RU', {
-      timeZone,
-      weekday: 'short',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }),
-    time: new Intl.DateTimeFormat('ru-RU', {
-      timeZone,
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    }),
+    date: dateFormatter(timeZone, { weekday: 'short', year: 'numeric' }),
+    time: timeFormatter(timeZone),
   };
 }
 

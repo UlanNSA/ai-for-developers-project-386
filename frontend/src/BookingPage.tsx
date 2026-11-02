@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { type Booking, createBooking, getMeetingType, type MeetingType } from './api/generated';
 import { BookingConfirmation } from './BookingConfirmation';
 import { BookingForm, FIELD_BY_API_NAME, type GuestField, type GuestValues } from './BookingForm';
+import { type FieldMessages, placeFieldErrors } from './fieldErrors';
 import { SlotPicker } from './SlotPicker';
 import { useApiResource } from './useApiResource';
 
@@ -16,7 +17,7 @@ function Booker({ meetingType }: { meetingType: MeetingType }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [guest, setGuest] = useState<GuestValues>({ name: '', email: '' });
   const [submitting, setSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<GuestField, string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<FieldMessages<GuestField>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [slotMessage, setSlotMessage] = useState<string | null>(null);
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -58,18 +59,9 @@ function Booker({ meetingType }: { meetingType: MeetingType }) {
         setReloadKey((key) => key + 1);
         return;
       }
-      const messages: Partial<Record<GuestField, string>> = {};
-      let unplaced = false;
-      for (const fieldError of error?.fieldErrors ?? []) {
-        const field = FIELD_BY_API_NAME[fieldError.field];
-        if (field) {
-          messages[field] = fieldError.message;
-        } else {
-          unplaced = true;
-        }
-      }
+      const { messages, needsGeneralMessage } = placeFieldErrors(error?.fieldErrors, (name) => FIELD_BY_API_NAME[name]);
       setFieldErrors(messages);
-      if (Object.keys(messages).length === 0 || unplaced) setGeneralError(GENERAL_ERROR);
+      if (needsGeneralMessage) setGeneralError(GENERAL_ERROR);
     } catch {
       setGeneralError(GENERAL_ERROR);
     } finally {

@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react';
+import { fieldErrorView, type FieldMessages } from './fieldErrors';
 
 export interface GuestValues {
   name: string;
@@ -16,7 +17,7 @@ export const FIELD_BY_API_NAME: Record<string, GuestField | undefined> = {
 interface BookingFormProps {
   values: GuestValues;
   onChange: (values: GuestValues) => void;
-  fieldErrors: Partial<Record<GuestField, string>>;
+  fieldErrors: FieldMessages<GuestField>;
   generalError: string | null;
   submitting: boolean;
   onSubmit: () => void;
@@ -28,16 +29,7 @@ export function BookingForm({ values, onChange, fieldErrors, generalError, submi
     onSubmit();
   };
 
-  const errorProps = (field: GuestField) => ({
-    'aria-invalid': fieldErrors[field] ? true : undefined,
-    'aria-describedby': fieldErrors[field] ? `${field}-error` : undefined,
-  });
-  const errorText = (field: GuestField) =>
-    fieldErrors[field] && (
-      <span id={`${field}-error`} className="field-error">
-        {fieldErrors[field]}
-      </span>
-    );
+  const { inputProps: errorProps, message: errorText } = fieldErrorView(fieldErrors);
 
   return (
     <form className="form" onSubmit={submit} noValidate>
