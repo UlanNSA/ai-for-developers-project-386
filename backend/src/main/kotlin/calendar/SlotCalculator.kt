@@ -18,7 +18,10 @@ data class Slot(
 data class TimeRange(
     val start: Instant,
     val end: Instant,
-)
+) {
+    /** Half-open overlap: ranges that merely touch (one ends where the other starts) do not overlap. */
+    fun overlaps(other: TimeRange): Boolean = start < other.end && other.start < end
+}
 
 /** Supplies the time ranges already taken by confirmed bookings. */
 fun interface BusyTimeSource {
@@ -61,7 +64,7 @@ object SlotCalculator {
                     val start = startInstant(date, local, zone)
                     if (start != null && start > now) {
                         val end = start.plus(duration)
-                        if (end <= intervalEnd && busy.none { start < it.end && it.start < end }) {
+                        if (end <= intervalEnd && busy.none { it.overlaps(TimeRange(start, end)) }) {
                             slots += Slot(start, end)
                         }
                     }

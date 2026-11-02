@@ -17,6 +17,9 @@ data class Booking(
     val guestEmail: String,
 )
 
+/** The time this booking occupies, `[startAt, endAt)`. */
+val Booking.range: TimeRange get() = TimeRange(startAt, endAt)
+
 /** The state seen and changed inside one critical section of the repository. */
 interface BookingTransaction {
     /** Time ranges of all confirmed bookings, of any meeting type. */
@@ -47,13 +50,13 @@ class InMemoryBookingRepository :
 
     override fun list(): List<Booking> = lock.withLock { items.toList() }
 
-    override fun busyRanges(): List<TimeRange> = lock.withLock { items.map { TimeRange(it.startAt, it.endAt) } }
+    override fun busyRanges(): List<TimeRange> = lock.withLock { items.map { it.range } }
 
     override fun <R> inCriticalSection(block: (BookingTransaction) -> R): R =
         lock.withLock {
             block(
                 object : BookingTransaction {
-                    override val busy: List<TimeRange> get() = items.map { TimeRange(it.startAt, it.endAt) }
+                    override val busy: List<TimeRange> get() = items.map { it.range }
 
                     override fun add(booking: Booking) {
                         items += booking
@@ -105,7 +108,7 @@ class BookingService(
                     .any { it.startAt == startAt }
             if (!offered) return@inCriticalSection BookingOutcome.InvalidSlot
             val endAt = startAt.plus(Duration.ofMinutes(meetingType.durationMinutes.toLong()))
-            if (tx.busy.any { startAt < it.end && it.start < endAt }) return@inCriticalSection BookingOutcome.SlotTaken
+            if (tx.busy.any { it.overlaps(TimeRange(startAt, endAt)) }) return@inCriticalSection BookingOutcome.SlotTaken
             val booking = Booking(UUID.randomUUID(), meetingType.id, startAt, endAt, guestName, guestEmail)
             tx.add(booking)
             BookingOutcome.Created(booking)
