@@ -132,7 +132,7 @@ mise run smoke -- http://localhost:8080 --booking   # + сценарий зап�
 
 ### Публичное приложение (Render)
 
-Публичная ссылка: _появится здесь после создания сервиса на Render_.
+Публичная ссылка: _https://calendar-ea8m.onrender.com_.
 
 Деплой описан Blueprint-файлом `render.yaml`: бесплатный (`plan: free`) Web Service на Docker, регион Frankfurt, автодеплой на каждый коммит в `master`, health check `/api/health`. Создание сервиса:
 
