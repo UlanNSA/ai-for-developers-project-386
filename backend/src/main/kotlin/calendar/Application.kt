@@ -6,12 +6,14 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.http.content.singlePageApplication
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -152,6 +154,18 @@ fun Application.module(
                 val slots =
                     SlotCalculator.calculate(clock, config.schedule, meetingType.durationMinutes, busyTimes.busyRanges())
                 call.respond(slots.map { it.toResponse() })
+            }
+        }
+        // The built React app: files as they are, every other path gets index.html so client routes
+        // (/owner, /book/:id) survive a direct visit or refresh.
+        config.staticDir?.let { dir ->
+            // /api stays API-only: an unknown API path is a plain 404, never the index page. These routes are
+            // more specific than the SPA catch-all, while the exact API routes above are more specific still.
+            route("/api") { handle { call.respond(HttpStatusCode.NotFound) } }
+            route("/api/{...}") { handle { call.respond(HttpStatusCode.NotFound) } }
+            singlePageApplication {
+                filesPath = dir
+                defaultPage = "index.html"
             }
         }
     }
