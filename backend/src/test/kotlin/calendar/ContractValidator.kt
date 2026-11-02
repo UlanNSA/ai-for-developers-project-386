@@ -26,6 +26,7 @@ object ContractValidator {
     suspend fun assertMatchesContract(
         response: HttpResponse,
         requestBody: String? = null,
+        validateRequest: Boolean = true,
     ) {
         val call = response.request
         val request =
@@ -40,6 +41,7 @@ object ContractValidator {
                     call.headers.names().forEach { name ->
                         call.headers.getAll(name)?.forEach { value -> withHeader(name, value) }
                     }
+                    call.content.contentType?.let { withContentType(it.toString()) }
                     requestBody?.let { withBody(it) }
                 }.build()
         val simpleResponse =
@@ -52,7 +54,12 @@ object ContractValidator {
                     response.headers[HttpHeaders.ContentType]?.let { withContentType(it) }
                     withBody(response.bodyAsText())
                 }.build()
-        val report = validator.validate(request, simpleResponse)
+        val report =
+            if (validateRequest) {
+                validator.validate(request, simpleResponse)
+            } else {
+                validator.validateResponse(call.url.encodedPath, Request.Method.valueOf(call.method.value), simpleResponse)
+            }
         if (report.hasErrors()) {
             val details = report.messages.joinToString("\n") { "- ${it.message}" }
             fail("${call.method.value} ${call.url.encodedPath} violates the contract:\n$details")
@@ -60,4 +67,11 @@ object ContractValidator {
     }
 }
 
-suspend fun HttpResponse.assertMatchesContract(requestBody: String? = null) = ContractValidator.assertMatchesContract(this, requestBody)
+/**
+ * Checks the response and the request. Requests with a body must pass [requestBody]; for requests that are
+ * invalid on purpose (bad bounds, broken JSON) pass [validateRequest] = false to check only the response.
+ */
+suspend fun HttpResponse.assertMatchesContract(
+    requestBody: String? = null,
+    validateRequest: Boolean = true,
+) = ContractValidator.assertMatchesContract(this, requestBody, validateRequest)

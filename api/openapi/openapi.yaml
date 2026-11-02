@@ -35,6 +35,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+    post:
+      operationId: createMeetingType
+      description: Creates a meeting type; titles may repeat.
+      parameters: []
+      responses:
+        '201':
+          description: The meeting type was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '400':
+          description: MALFORMED_REQUEST (not valid JSON) or VALIDATION_ERROR (rules, unknown fields; with fieldErrors).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Unhandled server failure; the body never contains internal details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeRequest'
   /api/meeting-types/{id}:
     get:
       operationId: getMeetingType
@@ -127,6 +156,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldError'
+    CreateMeetingTypeRequest:
+      type: object
+      required:
+        - title
+        - durationMinutes
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 1 to 100 characters after trim.
+        description:
+          type: string
+          maxLength: 500
+          description: Up to 500 characters after trim; blank counts as absent.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 240
+          description: Whole minutes, a multiple of 15, 15 to 240.
+      description: Body of POST /api/meeting-types. Lengths are counted after trim in Unicode code points.
     FieldError:
       type: object
       required:

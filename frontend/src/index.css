@@ -102,3 +102,56 @@ a {
   background: #2563eb;
   border-color: #2563eb;
 }
+
+.warning {
+  padding: 12px 16px;
+  color: #7c2d12;
+  background: #ffedd5;
+  border: 1px solid #fdba74;
+  border-radius: 6px;
+}
+
+.owner-types {
+  padding-left: 20px;
+}
+
+.owner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 480px;
+}
+
+.owner-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.owner-form input,
+.owner-form textarea {
+  padding: 8px;
+  font: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.owner-form [aria-invalid='true'] {
+  border-color: #b91c1c;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 0.9em;
+}
+
+.owner-form .button {
+  align-self: flex-start;
+  border: 0;
+  cursor: pointer;
+}
+
+.owner-form .button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

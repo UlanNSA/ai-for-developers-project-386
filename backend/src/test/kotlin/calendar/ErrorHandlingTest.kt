@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 class ErrorHandlingTest {
-    private class FailingRepository : MeetingTypeRepository {
+    class FailingRepository : MeetingTypeRepository {
         override fun list(): List<MeetingType> = error("secret internal detail")
 
         override fun find(id: UUID): MeetingType? = error("secret internal detail")
