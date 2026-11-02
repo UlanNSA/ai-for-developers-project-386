@@ -71,3 +71,34 @@ body {
 a {
   color: #2563eb;
 }
+
+.timezone {
+  color: #6b7280;
+}
+
+.day-list,
+.time-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.day-list button,
+.time-list button {
+  padding: 8px 12px;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.day-list button[aria-pressed='true'],
+.time-list button[aria-pressed='true'] {
+  color: #fff;
+  background: #2563eb;
+  border-color: #2563eb;
+}

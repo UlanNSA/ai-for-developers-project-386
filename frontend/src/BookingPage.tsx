@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router';
 import { getMeetingType } from './api/generated';
+import { SlotPicker } from './SlotPicker';
 import { useApiResource } from './useApiResource';
 
 export function BookingPage() {
@@ -32,7 +33,7 @@ export function BookingPage() {
     <main className="page">
       <h1>{meetingType.title}</h1>
       <p className="duration">{meetingType.durationMinutes} мин</p>
-      <p>Выбор времени будет доступен позже</p>
+      <SlotPicker meetingTypeId={meetingTypeId} />
       <Link to="/">Вернуться на главную</Link>
     </main>
   );

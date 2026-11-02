@@ -63,6 +63,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /api/meeting-types/{id}/slots:
+    get:
+      operationId: listSlots
+      description: Free slots within the booking horizon, sorted by `startAt`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '404':
+          description: The meeting type does not exist (an unknown or malformed id gives the same answer).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Unhandled server failure; the body never contains internal details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/owner:
     get:
       operationId: getOwner
@@ -145,6 +176,19 @@ components:
         timeZone:
           type: string
           description: IANA time zone id, e.g. Asia/Almaty
+    Slot:
+      type: object
+      required:
+        - startAt
+        - endAt
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      description: A free time range for a meeting type; both instants are UTC.
 servers:
   - url: http://localhost:8080
     description: Local development

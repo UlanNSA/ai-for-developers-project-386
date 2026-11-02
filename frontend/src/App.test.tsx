@@ -48,7 +48,7 @@ test('"Выбрать время" opens the booking page of that meeting type', 
 
   expect(await screen.findByRole('heading', { level: 1, name: meetingTypes[0].title })).toBeTruthy();
   expect(screen.getByText('15 мин')).toBeTruthy();
-  expect(screen.getByText('Выбор времени будет доступен позже')).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Выберите день' })).toBeTruthy();
 });
 
 test('booking page links back to the home page', async () => {

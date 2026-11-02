@@ -11,6 +11,8 @@ data class OwnerConfig(
 
 data class AppConfig(
     val owner: OwnerConfig,
+    /** The Owner's weekly availability; its zone is the Owner's time zone. */
+    val schedule: Schedule = Schedule.workWeek(ZoneId.of(owner.timeZone)),
 ) {
     companion object {
         const val DEFAULT_OWNER_NAME = "Владелец календаря"

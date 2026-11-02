@@ -3,6 +3,7 @@ package calendar
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -15,6 +16,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.time.Clock
 import java.util.UUID
 
 @Serializable
@@ -38,6 +40,20 @@ data class MeetingTypeResponse(
 )
 
 private fun MeetingType.toResponse() = MeetingTypeResponse(id.toString(), title, description, durationMinutes)
+
+/** Both instants are UTC ISO 8601 with a trailing `Z`. */
+@Serializable
+data class SlotResponse(
+    val startAt: String,
+    val endAt: String,
+)
+
+/** A malformed id is indistinguishable from an unknown one for the client. */
+private fun MeetingTypeRepository.findByParameter(raw: String?): MeetingType? =
+    runCatching { UUID.fromString(raw) }.getOrNull()?.let { find(it) }
+
+private suspend fun ApplicationCall.respondMeetingTypeNotFound() =
+    respond(HttpStatusCode.NotFound, ApiError(code = "MEETING_TYPE_NOT_FOUND", message = "Тип встречи не найден"))
 
 @Serializable
 data class FieldError(
@@ -64,6 +80,9 @@ fun main() {
 fun Application.module(
     config: AppConfig,
     meetingTypes: MeetingTypeRepository = InMemoryMeetingTypeRepository.withInitialTypes(),
+    clock: Clock = Clock.systemUTC(),
+    // Bookings do not exist yet: nothing is busy until the booking storage is added.
+    busyTimes: BusyTimeSource = BusyTimeSource { emptyList() },
 ) {
     install(ContentNegotiation) {
         // Optional contract fields (e.g. ApiError.fieldErrors) must be absent, not null.
@@ -90,16 +109,21 @@ fun Application.module(
             call.respond(meetingTypes.list().map { it.toResponse() })
         }
         get("/api/meeting-types/{id}") {
-            // A malformed id is indistinguishable from an unknown one for the client.
-            val id = runCatching { UUID.fromString(call.parameters["id"]) }.getOrNull()
-            val meetingType = id?.let { meetingTypes.find(it) }
+            val meetingType = meetingTypes.findByParameter(call.parameters["id"])
             if (meetingType == null) {
-                call.respond(
-                    HttpStatusCode.NotFound,
-                    ApiError(code = "MEETING_TYPE_NOT_FOUND", message = "Тип встречи не найден"),
-                )
+                call.respondMeetingTypeNotFound()
             } else {
                 call.respond(meetingType.toResponse())
+            }
+        }
+        get("/api/meeting-types/{id}/slots") {
+            val meetingType = meetingTypes.findByParameter(call.parameters["id"])
+            if (meetingType == null) {
+                call.respondMeetingTypeNotFound()
+            } else {
+                val slots =
+                    SlotCalculator.calculate(clock, config.schedule, meetingType.durationMinutes, busyTimes.busyRanges())
+                call.respond(slots.map { SlotResponse(it.startAt.toString(), it.endAt.toString()) })
             }
         }
     }
