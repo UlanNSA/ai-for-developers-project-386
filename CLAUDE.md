@@ -39,6 +39,7 @@ Everything is driven by mise (Java `temurin-21.0.13+9.0.LTS`, Node `24.22.2`, pi
 
 ```
 mise run check:fast       # everything except E2E: api format, api drift, SDK gen, frontend typecheck/lint (--max-warnings 0)/test/build, backend ktlint/test/assemble
+mise run version:check    # all versions identical (part of check:fast; runs its node:test tests first)
 mise run check            # full set: check:fast + e2e
 mise run e2e:install      # download Playwright's Chromium (needs HTTPS_PROXY + https_proxy and NODE_USE_SYSTEM_CA=1 behind the corporate proxy, see README)
 mise run e2e              # browser E2E (package e2e/): real Ktor in test mode + Vite + Playwright
@@ -73,6 +74,9 @@ mise Gradle tasks call `java -classpath gradle/wrapper/gradle-wrapper.jar org.gr
 
 - Conventional Commits (`feat`, `fix`, `docs`, `chore`, `ci`, `test`, `refactor`, `!` for breaking changes) with optional scopes `api`, `backend`, `frontend`, `e2e`.
 - **Every implementation commit must reference its GitHub Issue** (the ticket from spec #16), in the message body or subject: `Closes #N` when the commit completes that ticket's acceptance criteria, otherwise `Refs #N`. One ticket per commit series; do not mix tickets in a commit.
+- commitlint is not used; rules are by convention only.
+- Releases (release-please, `.github/workflows/release-please.yml`, push to `master`): ONE version for the whole monorepo, one `CHANGELOG.md`, tags `vX.Y.Z`, config in `release-please-config.json` + `.release-please-manifest.json` (type `simple`, `bump-minor-pre-major`: `feat` -> minor, `fix` -> patch, breaking -> minor while 0.x). Only `feat`/`fix`/breaking commits produce a release PR; merging that PR creates the tag, GitHub Release and changelog. No artifacts are published. Uses the default `GITHUB_TOKEN` only; the repo setting "Allow GitHub Actions to create and approve pull requests" is enabled by the owner (CI on the release PR may not start or may wait for manual approval).
+- The version lives in `version.txt`, `{api,frontend,e2e}/package.json` and `package-lock.json` (`$.version`, `$.packages[""].version`) and `backend/build.gradle.kts` (the line `version = "X.Y.Z" // x-release-please-version`; keep the annotation and a plain string literal). Never bump by hand; `mise run version:check` (in `check:fast`, tests in `version:test`, script `scripts/version-check.mjs`) fails on any mismatch. When adding a file that carries the version, add it to both `extra-files` and the check.
 - Never merge into `master` or push without the owner's explicit confirmation; never force push.
 
 ## Version constraints
