@@ -81,6 +81,12 @@ class BookingService(
     private val schedule: Schedule,
     private val bookings: BookingRepository,
 ) {
+    /** The Owner's list: bookings starting strictly after the current instant (started ones are excluded), by start. */
+    fun upcoming(): List<Booking> {
+        val now = clock.instant()
+        return bookings.list().filter { it.startAt > now }.sortedBy { it.startAt }
+    }
+
     /**
      * Re-checks availability and inserts in ONE critical section ([BookingRepository.inCriticalSection]);
      * the clock is read inside it (by [SlotCalculator.calculate]). Classification: not offered even with

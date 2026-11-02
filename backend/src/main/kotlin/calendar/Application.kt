@@ -207,9 +207,7 @@ fun Application.module(
             }
         }
         get("/api/bookings") {
-            val now = clock.instant()
-            val upcoming = bookings.list().filter { it.startAt > now }.sortedBy { it.startAt }
-            call.respond(upcoming.map { it.toResponse() })
+            call.respond(bookingService.upcoming().map { it.toResponse() })
         }
         post("/api/bookings") {
             val body =
