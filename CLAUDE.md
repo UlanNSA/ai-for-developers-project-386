@@ -49,6 +49,12 @@ cd frontend && npm run generate:sdk                              # needs api/ope
 
 mise Gradle tasks call `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain` instead of `./gradlew` so they work in PowerShell, cmd and POSIX shells alike.
 
+## Commits
+
+- Conventional Commits (`feat`, `fix`, `docs`, `chore`, `ci`, `test`, `refactor`, `!` for breaking changes) with optional scopes `api`, `backend`, `frontend`, `e2e`.
+- **Every implementation commit must reference its GitHub Issue** (the ticket from spec #16), in the message body or subject: `Closes #N` when the commit completes that ticket's acceptance criteria, otherwise `Refs #N`. One ticket per commit series; do not mix tickets in a commit.
+- Never merge into `master` or push without the owner's explicit confirmation; never force push.
+
 ## Version constraints
 
 - All dependency versions are pinned exactly (no `^`/`~`). Backend versions live in `backend/gradle/libs.versions.toml`.
