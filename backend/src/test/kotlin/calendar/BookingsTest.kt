@@ -53,11 +53,19 @@ class BookingsTest {
         email: String = "Anna@Example.com",
     ) = """{"meetingTypeId":"$meetingTypeId","startAt":"$startAt","guestName":"$name","guestEmail":"$email"}"""
 
-    private suspend fun HttpClient.book(json: String) =
-        post("/api/bookings") {
-            contentType(ContentType.Application.Json)
-            setBody(json)
-        }
+    /**
+     * Every booking response is checked against the contract here. A 400 answers a request that is invalid on
+     * purpose (bad bounds, broken JSON), so for it only the response is validated.
+     */
+    private suspend fun HttpClient.book(json: String): HttpResponse {
+        val response =
+            post("/api/bookings") {
+                contentType(ContentType.Application.Json)
+                setBody(json)
+            }
+        response.assertMatchesContract(json, validateRequest = response.status != HttpStatusCode.BadRequest)
+        return response
+    }
 
     private suspend fun HttpResponse.json(): JsonObject = Json.parseToJsonElement(bodyAsText()).jsonObject
 

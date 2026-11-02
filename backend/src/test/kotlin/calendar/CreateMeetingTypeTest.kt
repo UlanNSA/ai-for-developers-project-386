@@ -3,6 +3,7 @@ package calendar
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -25,11 +26,19 @@ class CreateMeetingTypeTest {
         application { module(AppConfig.fromEnvironment(emptyMap())) }
     }
 
-    private suspend fun ApplicationTestBuilder.post(body: String) =
-        client.post("/api/meeting-types") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
+    /**
+     * Every response is checked against the contract here. A 400 answers a request that is invalid on purpose
+     * (bad bounds, broken JSON), so for it only the response is validated.
+     */
+    private suspend fun ApplicationTestBuilder.post(body: String): HttpResponse {
+        val response =
+            client.post("/api/meeting-types") {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        response.assertMatchesContract(body, validateRequest = response.status != HttpStatusCode.BadRequest)
+        return response
+    }
 
     private fun JsonObject.field(name: String) = this[name]!!.jsonPrimitive.content
 
@@ -61,7 +70,9 @@ class CreateMeetingTypeTest {
             val items = Json.parseToJsonElement(list.bodyAsText()).jsonArray
             assertEquals(3, items.size)
             assertEquals(created, items.last().jsonObject)
-            assertEquals(HttpStatusCode.OK, client.get("/api/meeting-types/${created.field("id")}").status)
+            val found = client.get("/api/meeting-types/${created.field("id")}")
+            found.assertMatchesContract()
+            assertEquals(HttpStatusCode.OK, found.status)
         }
 
     @Test
@@ -155,7 +166,9 @@ class CreateMeetingTypeTest {
             post("""{"title":"","durationMinutes":30}""")
             post("{broken")
 
-            val items = Json.parseToJsonElement(client.get("/api/meeting-types").bodyAsText()).jsonArray
+            val list = client.get("/api/meeting-types")
+            list.assertMatchesContract()
+            val items = Json.parseToJsonElement(list.bodyAsText()).jsonArray
             assertEquals(2, items.size)
         }
 

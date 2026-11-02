@@ -68,7 +68,9 @@ class MeetingTypesTest {
     fun getReturnsOneTypeById() =
         testApplication {
             startDefault()
-            val first = Json.parseToJsonElement(client.get("/api/meeting-types").bodyAsText()).jsonArray[1].jsonObject
+            val list = client.get("/api/meeting-types")
+            list.assertMatchesContract()
+            val first = Json.parseToJsonElement(list.bodyAsText()).jsonArray[1].jsonObject
             val id = first["id"]!!.jsonPrimitive.content
 
             val response = client.get("/api/meeting-types/$id")
