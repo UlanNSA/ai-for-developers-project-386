@@ -11,7 +11,7 @@ Appointment-booking web app (Calendly-like), Hexlet learning project. Endpoints 
 ## Architecture: contract-first pipeline
 
 ```
-api/*.tsp (TypeSpec: main, owner, meeting-types, errors) --tsp compile--> api/openapi/openapi.yaml (OpenAPI 3.0.0, committed)
+api/*.tsp (TypeSpec: main, owner, meeting-types, bookings, errors) --tsp compile--> api/openapi/openapi.yaml (OpenAPI 3.0.0, committed)
                                               |--> frontend/src/api/generated/ (hey-api SDK, gitignored)
 backend/ (Ktor) implements the contract by hand (no server codegen)
 ```
