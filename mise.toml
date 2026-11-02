@@ -18,10 +18,11 @@ node = "24.22.2"
 # backend/build), hence the single backend:check run.
 
 [tasks.install]
-description = "Install npm dependencies (api, frontend)"
+description = "Install npm dependencies (api, frontend, e2e)"
 run = [
   "npm ci --ignore-scripts --prefix api",
   "npm ci --ignore-scripts --prefix frontend",
+  "npm ci --ignore-scripts --prefix e2e",
 ]
 
 [tasks."api:format-check"]
@@ -112,15 +113,34 @@ dir = "frontend"
 run = "npm run dev"
 
 [tasks."check:fast"]
-description = "Everything except E2E: contract (format + drift), SDK, frontend, backend. This is what CI runs"
+description = "Everything except E2E: contract (format + drift), SDK, frontend, backend. The CI job `check` runs it; `e2e` is a separate CI job"
 depends = [
   "api:format-check",
+  "e2e:typecheck",
   "frontend:build",
   "frontend:lint",
   "frontend:test",
   "backend:check",
 ]
 
+[tasks."e2e:typecheck"]
+description = "tsc for the E2E package (Playwright transpiles tests without type checking)"
+depends = ["install"]
+dir = "e2e"
+run = "npm run typecheck"
+
+[tasks."e2e:install"]
+description = "Download the Chromium build for Playwright (no-op when present). Behind a corporate TLS proxy see README"
+depends = ["install"]
+dir = "e2e"
+run = "npx playwright install chromium"
+
+[tasks.e2e]
+description = "Browser E2E (Playwright): starts the real backend in test mode and Vite, runs the tests"
+depends = ["sdk:generate", "e2e:install"]
+dir = "e2e"
+run = "npx playwright test"
+
 [tasks.check]
-description = "Full check. Currently an alias of check:fast; the E2E task (ticket T9) will be added here"
-depends = ["check:fast"]
+description = "Full check: check:fast + browser E2E"
+depends = ["check:fast", "e2e"]

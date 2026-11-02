@@ -39,14 +39,16 @@ mise install
 
 ```bash
 mise run check:fast     # всё, что запускает CI: формат TypeSpec, дрейф контракта, SDK, lint (--max-warnings 0), тесты, сборки
-mise run check          # полный набор; пока равен check:fast (E2E добавится отдельной задачей)
+mise run check          # полный набор: check:fast + e2e
+mise run e2e:install    # скачать Chromium для Playwright (один раз; за прокси см. ниже)
+mise run e2e            # браузерные E2E: настоящий Ktor в тестовом режиме + Vite + Playwright 1.64.1 (пакет e2e/)
 mise run api:drift      # контракт, собранный заново, должен побайтно совпадать с api/openapi/openapi.yaml
 mise run api:update     # пересобрать и перезаписать api/openapi/openapi.yaml (закоммитьте результат)
 mise run dev:backend    # Ktor на http://localhost:8080 (GET /api/health)
 mise run dev:frontend   # Vite на http://localhost:5173, /api проксируется на backend
 ```
 
-Отдельные задачи: `mise tasks`. Версии Java (`temurin-21.0.13+9.0.LTS`) и Node.js (`24.22.2`) зафиксированы в `mise.toml`; CI запускает только `mise run check:fast` (mise `2026.10.25`).
+Отдельные задачи: `mise tasks`. Версии Java (`temurin-21.0.13+9.0.LTS`) и Node.js (`24.22.2`) зафиксированы в `mise.toml`; CI состоит из двух независимых заданий: `check` (`mise run check:fast`) и `e2e` (`mise run e2e`, отчёт Playwright сохраняется артефактом `playwright-report`); mise `2026.10.25`.
 
 Задачи `backend:lint`, `backend:test`, `backend:build` не запускайте параллельно (общий `backend/build`); `check:fast` выполняет их одним запуском Gradle (`backend:check`). Если Gradle нужен локальный каталог с зеркалом и кэшем, укажите его переменной окружения `GRADLE_USER_HOME` (в репозиторий такие настройки не попадают). Команды `mise run ...` одинаковы в PowerShell и bash.
 
@@ -60,6 +62,18 @@ mise run dev:frontend   # Vite на http://localhost:5173, /api проксиру
 
 Типы встреч (`GET /api/meeting-types`, `GET /api/meeting-types/{id}`) хранятся в памяти backend: при старте создаются два Типа (15 и 30 минут), после перезапуска данные сбрасываются. Главная страница и страница записи `/book/:meetingTypeId` получают их через API.
 
+### Тестовый режим backend (только для E2E)
+
+Включается только переменной `CALENDAR_TEST_MODE=true`; `e2e/playwright.config.ts` задаёт её процессу backend сам. В тестовом режиме:
+
+- время фиксировано переменной `CALENDAR_FIXED_NOW` (ISO-8601 момент, обязательна; для E2E `2026-11-02T06:00:00Z`, понедельник 11:00 в Asia/Almaty); без неё или с неверным значением backend не стартует;
+- есть служебный `POST /__test__/reset` (204): удаляет Брони и возвращает два начальных Типа встреч; в OpenAPI его нет;
+- backend слушает только `127.0.0.1`.
+
+В обычном режиме маршрут не зарегистрирован (404), часы системные, а `CALENDAR_FIXED_NOW` без `CALENDAR_TEST_MODE=true` останавливает запуск. Не включайте тестовый режим ни в каком публично доступном окружении.
+
+E2E-пакет `e2e/` отдельный (`npm ci --ignore-scripts` делает `mise run install`), Vitest и `tsc -b` frontend его не затрагивают; ESLint для него не настроен, типы проверяет `mise run e2e:typecheck`. Браузер: часовой пояс `Asia/Tbilisi`, локаль `ru-RU`. Тесты вызывают сброс состояния перед каждым тестом (авто-фикстура). Необязательная переменная `PW_CHANNEL` (например `msedge`, `chrome`) запускает установленный браузер вместо скачанного Chromium (в CI не используется).
+
 ### Корпоративная сеть (прокси, свой TLS-сертификат)
 
 SSL-проверку не отключаем. В репозитории только публичные источники (Maven Central, npm). Локальные настройки хранятся вне репозитория:
@@ -67,6 +81,7 @@ SSL-проверку не отключаем. В репозитории толь
 - `~/.npmrc`: `registry` корпоративного зеркала npm (в lock-файлах прописан `registry.npmjs.org`, npm подменяет хост на настроенный registry).
 - `~/.gradle/gradle.properties`: `systemProp.javax.net.ssl.trustStoreType=WINDOWS-ROOT`, чтобы JVM доверяла корпоративному сертификату из хранилища Windows. Прокси: `systemProp.https.proxyHost` / `proxyPort` (логин и пароль только там, не в репозитории).
 - `~/.gradle/init.d/*.init.gradle.kts`: при необходимости подмена репозиториев на корпоративное зеркало Maven.
+- Скачивание браузера Playwright (`mise run e2e:install`): задайте в своём окружении `HTTPS_PROXY` и `https_proxy` (адрес прокси; на проверенной машине `mise run` обнулял `HTTPS_PROXY`, если не задана строчная форма) и `NODE_USE_SYSTEM_CA=1` (Node 24 доверяет хранилищу сертификатов ОС, включая корпоративный корневой). Проверено на Windows 11: с `NODE_USE_SYSTEM_CA=1` загрузка проходит, без неё падает с `SELF_SIGNED_CERT_IN_CHAIN`. Если хранилище ОС недоступно, укажите `NODE_EXTRA_CA_CERTS` на PEM-файл корпоративного сертификата. `NODE_TLS_REJECT_UNAUTHORIZED=0` не используйте.
 
 ---
 

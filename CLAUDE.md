@@ -35,11 +35,14 @@ Routes via `react-router` (`BrowserRouter` in `main.tsx`): `/owner` (`OwnerPage`
 
 ## Commands
 
-Everything is driven by mise (Java `temurin-21.0.13+9.0.LTS`, Node `24.22.2`, pinned exactly in `mise.toml`; CI pins mise `2026.10.25` and runs only `mise run check:fast`). Install: `winget install jdx.mise` (PowerShell) then `mise trust && mise install`. Commands are identical in PowerShell and bash. For Gradle with a local mirror/cache set `GRADLE_USER_HOME` in your own environment, never in committed files.
+Everything is driven by mise (Java `temurin-21.0.13+9.0.LTS`, Node `24.22.2`, pinned exactly in `mise.toml`; CI pins mise `2026.10.25` and has two independent jobs: `check` = `mise run check:fast`, `e2e` = `mise run e2e` with the report uploaded as an artifact). Install: `winget install jdx.mise` (PowerShell) then `mise trust && mise install`. Commands are identical in PowerShell and bash. For Gradle with a local mirror/cache set `GRADLE_USER_HOME` in your own environment, never in committed files.
 
 ```
 mise run check:fast       # everything except E2E: api format, api drift, SDK gen, frontend typecheck/lint (--max-warnings 0)/test/build, backend ktlint/test/assemble
-mise run check            # full set; currently an alias of check:fast (E2E task T9 will be added to it)
+mise run check            # full set: check:fast + e2e
+mise run e2e:install      # download Playwright's Chromium (needs HTTPS_PROXY + https_proxy and NODE_USE_SYSTEM_CA=1 behind the corporate proxy, see README)
+mise run e2e              # browser E2E (package e2e/): real Ktor in test mode + Vite + Playwright
+mise run e2e:typecheck    # tsc for e2e/ (part of check:fast; e2e has no ESLint)
 mise run api:drift        # fresh contract build in api/.tmp/openapi (gitignored) must equal committed api/openapi/openapi.yaml byte-for-byte
 mise run api:update       # regenerate and overwrite the committed api/openapi/openapi.yaml (commit it with the .tsp change)
 mise run dev:backend      # Ktor on :8080
@@ -58,6 +61,13 @@ cd frontend && npm run generate:sdk                              # needs api/ope
 ```
 
 mise Gradle tasks call `java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain` instead of `./gradlew` so they work in PowerShell, cmd and POSIX shells alike. Task graph: `api:build` (fresh scratch dir) -> `api:drift` -> `sdk:generate` -> frontend tasks; `backend:check` (one Gradle run of ktlintCheck test assemble) depends on `api:drift`. Do not run `backend:lint/test/build` in parallel: they share `backend/build` and race (observed with three parallel Gradle runs).
+
+## Browser E2E (`e2e/`)
+
+- Separate npm package `calendar-e2e` (`@playwright/test` 1.64.1, TypeScript 6.0.3); `mise run install` runs `npm ci --ignore-scripts` for it; frontend Vitest/tsc/ESLint never see it. `e2e/playwright.config.ts` starts the real backend (`gradle run`, cwd `backend`, readiness `GET /api/health`) and Vite (`--port 5173 --strictPort`); `reuseExistingServer` is false only when `CI` is set. One worker, retries 0 locally / 1 in CI, guest time zone `Asia/Tbilisi`, locale `ru-RU`. `PW_CHANNEL=msedge|chrome` optionally swaps in an installed browser (CI uses bundled Chromium).
+- Backend test mode is enabled ONLY by `CALENDAR_TEST_MODE=true` (`AppConfig.testMode`): requires `CALENDAR_FIXED_NOW` (ISO-8601 instant, fixed `Clock`), registers `POST /__test__/reset` (204; clears Bookings, restores the two seeded Meeting types with new ids), binds `127.0.0.1`. Without test mode the route is a 404 and `CALENDAR_FIXED_NOW` makes startup fail. The route is not in the TypeSpec/OpenAPI contract. Never enable test mode outside the E2E job or a local E2E run.
+- Tests import `test`/`expect` from `e2e/tests/fixtures.ts`: an auto fixture calls the reset route directly on `http://127.0.0.1:8080` before every test (Vite proxies only `/api`), so tests must not depend on order.
+- Behind the corporate proxy browser download needs `HTTPS_PROXY` + `https_proxy` (both: `mise` blanks the upper-case one alone) and `NODE_USE_SYSTEM_CA=1` (verified; without it `SELF_SIGNED_CERT_IN_CHAIN`); alternative `NODE_EXTRA_CA_CERTS` (PEM path). Never `NODE_TLS_REJECT_UNAUTHORIZED=0`. Installed Edge on the dev machine refuses headless mode (admin policy), so `PW_CHANNEL=msedge` does not work there.
 
 ## Commits
 
