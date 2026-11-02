@@ -5,7 +5,7 @@ import { type ApiError, type CreateMeetingTypeRequest, type MeetingType } from '
 import { client } from './api/generated/client.gen';
 import { App } from './App';
 import { OwnerPage } from './OwnerPage';
-import { meetingTypes } from './testApi';
+import { meetingTypes, owner } from './testApi';
 
 beforeAll(() => {
   client.setConfig({ baseUrl: 'http://localhost' });
@@ -27,7 +27,10 @@ function stubBackend(post: Handler, initial: MeetingType[] = meetingTypes) {
   const posted: CreateMeetingTypeRequest[] = [];
   const stub = vi.fn(async (input: Request | string | URL) => {
     const request = input instanceof Request ? input : new Request(String(input));
-    if (new URL(request.url).pathname !== '/api/meeting-types') return new Response('not found', { status: 404 });
+    const path = new URL(request.url).pathname;
+    if (path === '/api/bookings') return Response.json([]);
+    if (path === '/api/owner') return Response.json(owner);
+    if (path !== '/api/meeting-types') return new Response('not found', { status: 404 });
     if (request.method === 'GET') return Response.json(items);
     const body = (await request.json()) as CreateMeetingTypeRequest;
     posted.push(body);
@@ -72,7 +75,7 @@ test('shows the permanent warning on top, even while loading', () => {
   const warning = screen.getByText(WARNING);
   expect(warning.closest('[role="note"], [role="alert"], p')).toBeTruthy();
   expect(screen.getByRole('heading', { level: 2, name: 'Типы встреч' })).toBeTruthy();
-  expect(screen.getByText('Загрузка…')).toBeTruthy();
+  expect(screen.getAllByText('Загрузка…').length).toBeGreaterThan(0);
 });
 
 test('lists existing meeting types', async () => {
@@ -231,6 +234,9 @@ test('a network failure shows a general error', async () => {
       creating = true;
       throw new TypeError('network down');
     }
+    const path = new URL(request.url).pathname;
+    if (path === '/api/bookings') return Response.json([]);
+    if (path === '/api/owner') return Response.json(owner);
     return Response.json(meetingTypes);
   });
 
@@ -262,6 +268,7 @@ test('the /owner route renders the page and the home page does not link to it', 
   vi.stubGlobal('fetch', async (input: Request | string | URL) => {
     const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
     if (path === '/api/owner') return Response.json({ name: 'Анна', bio: 'Био', timeZone: 'Asia/Almaty' });
+    if (path === '/api/bookings') return Response.json([]);
     return Response.json(meetingTypes);
   });
 

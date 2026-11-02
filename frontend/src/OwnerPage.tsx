@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { createMeetingType, listMeetingTypes, type MeetingType } from './api/generated';
 import { type ResourceState, useApiResource } from './useApiResource';
+import { UpcomingBookings } from './UpcomingBookings';
 
 const WARNING =
   'Учебная страница без авторизации. Адрес доступен всем, данные Гостей видны любому. Используйте только тестовые данные';
@@ -144,6 +145,7 @@ export function OwnerPage() {
         {WARNING}
       </p>
       <h1>Страница владельца</h1>
+      <UpcomingBookings meetingTypes={state.status === 'ready' ? state.data : null} />
       <section>
         <h2>Типы встреч</h2>
         <MeetingTypeList state={state} />

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Appointment-booking web app (Calendly-like), Hexlet learning project. Endpoints so far: `GET /api/health`, `GET /api/owner`, `GET /api/meeting-types`, `GET /api/meeting-types/{id}`, `POST /api/meeting-types`, `GET /api/meeting-types/{id}/slots`, `POST /api/bookings`.
+Appointment-booking web app (Calendly-like), Hexlet learning project. Endpoints so far: `GET /api/health`, `GET /api/owner`, `GET /api/meeting-types`, `GET /api/meeting-types/{id}`, `POST /api/meeting-types`, `GET /api/meeting-types/{id}/slots`, `POST /api/bookings`, `GET /api/bookings` (upcoming bookings of all meeting types: `startAt` strictly after `clock.instant()`, ascending, no pagination).
 
 ## Do not touch
 
@@ -31,7 +31,7 @@ backend/ (Ktor) implements the contract by hand (no server codegen)
 
 ## Frontend pages
 
-Routes via `react-router` (`BrowserRouter` in `main.tsx`): `/owner` (`OwnerPage`: permanent no-auth warning, meeting-type list, create form with field errors from `fieldErrors`; public, deliberately NOT linked from the home page), `/` (`HomePage`, meeting-type cards) and `/book/:meetingTypeId` (`BookingPage`: slot picker, then name/email form (`BookingForm`), then `BookingConfirmation` on the same screen; on 409/422 the slots reload and typed name/email stay; the meeting type comes from `GET /api/meeting-types/{id}`, a 404 shows "Тип встречи не найден" with a link home). The owner block (`GET /api/owner`) and the cards (`GET /api/meeting-types`) are loaded via the generated SDK with loading/error/success states (`useApiResource`; tests stub fetch with `src/testApi.ts`). There is no static meeting-type data in the frontend. Never hand-write TS copies of API DTOs: import them from `./api/generated`. Domain terms: `GLOSSARY.md`; not-yet-implemented business rules: `docs/domain-rules.md`.
+Routes via `react-router` (`BrowserRouter` in `main.tsx`): `/owner` (`OwnerPage`: permanent no-auth warning, block "Предстоящие встречи" on top (`UpcomingBookings`: `GET /api/bookings` + `GET /api/owner`, times formatted via Intl in `Owner.timeZone` with a label, "Обновить" button disabled while loading, no polling; titles joined by `meetingTypeId` from the already-loaded types), meeting-type list, create form with field errors from `fieldErrors`; public, deliberately NOT linked from the home page), `/` (`HomePage`, meeting-type cards) and `/book/:meetingTypeId` (`BookingPage`: slot picker, then name/email form (`BookingForm`), then `BookingConfirmation` on the same screen; on 409/422 the slots reload and typed name/email stay; the meeting type comes from `GET /api/meeting-types/{id}`, a 404 shows "Тип встречи не найден" with a link home). The owner block (`GET /api/owner`) and the cards (`GET /api/meeting-types`) are loaded via the generated SDK with loading/error/success states (`useApiResource`; tests stub fetch with `src/testApi.ts`). There is no static meeting-type data in the frontend. Never hand-write TS copies of API DTOs: import them from `./api/generated`. Domain terms: `GLOSSARY.md`; not-yet-implemented business rules: `docs/domain-rules.md`.
 
 ## Commands
 
