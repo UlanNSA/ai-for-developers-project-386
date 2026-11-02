@@ -1,16 +1,19 @@
 name: ci
 
-# One run per event: pushes only on master (feature branches are covered by
-# their pull_request run), plus every pull request. The concurrency group also
-# cancels superseded runs of the same ref.
+# Every push (any branch) and every pull request is checked. A push to a branch
+# with an open pull request fires both events; the concurrency group is keyed by
+# the branch name (head_ref for pull requests, ref_name for pushes), so the
+# duplicate run for the same branch is cancelled and superseded runs never pile up.
 on:
   push:
     branches:
-      - master
+      - '**'
+    tags-ignore:
+      - '**'
   pull_request:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
