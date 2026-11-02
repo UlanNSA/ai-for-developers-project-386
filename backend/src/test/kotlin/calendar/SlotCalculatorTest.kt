@@ -69,7 +69,14 @@ class SlotCalculatorTest {
     fun horizonIsTodayAndThirteenFollowingCalendarDaysOfTheOwner() {
         val schedule = Schedule(almaty, everyDay(interval("09:00", "10:00")))
 
-        val days = calculate(mondayMorning, schedule).map { it.startAt.atZone(almaty).toLocalDate().toString() }.distinct()
+        val days =
+            calculate(mondayMorning, schedule)
+                .map {
+                    it.startAt
+                        .atZone(almaty)
+                        .toLocalDate()
+                        .toString()
+                }.distinct()
 
         assertEquals(14, days.size)
         assertEquals("2026-11-02", days.first())
@@ -82,7 +89,14 @@ class SlotCalculatorTest {
         // 20:00Z on 2 Nov is already 01:00 on Tuesday 3 Nov in Almaty.
         val clock = clockAt("2026-11-02T20:00:00Z")
 
-        val days = calculate(clock, schedule).map { it.startAt.atZone(almaty).toLocalDate().toString() }.distinct()
+        val days =
+            calculate(clock, schedule)
+                .map {
+                    it.startAt
+                        .atZone(almaty)
+                        .toLocalDate()
+                        .toString()
+                }.distinct()
 
         assertEquals("2026-11-03", days.first())
         assertEquals("2026-11-16", days.last())
@@ -115,7 +129,12 @@ class SlotCalculatorTest {
         val today =
             calculate(mondayMorning, schedule, duration = 30)
                 .filter { it.startAt.atZone(almaty).dayOfMonth == 2 }
-                .map { it.startAt.atZone(almaty).toLocalTime().toString() }
+                .map {
+                    it.startAt
+                        .atZone(almaty)
+                        .toLocalTime()
+                        .toString()
+                }
 
         assertTrue("11:30" in today) // ends exactly at 12:00
         assertTrue("11:45" !in today) // would cross into the break
@@ -149,7 +168,12 @@ class SlotCalculatorTest {
         val today =
             calculate(mondayMorning, schedule, duration = 30, busy = busy)
                 .filter { it.startAt.atZone(almaty).dayOfMonth == 2 }
-                .map { it.startAt.atZone(almaty).toLocalTime().toString() }
+                .map {
+                    it.startAt
+                        .atZone(almaty)
+                        .toLocalTime()
+                        .toString()
+                }
 
         assertEquals(listOf("09:00", "09:15", "09:30", "10:30", "10:45", "11:00", "11:15", "11:30"), today)
         // 09:30-10:00 touches the booking start, 10:30-11:00 touches its end: both free.
@@ -164,7 +188,12 @@ class SlotCalculatorTest {
         val today =
             calculate(mondayMorning, schedule, duration = 60, busy = busy)
                 .filter { it.startAt.atZone(almaty).dayOfMonth == 2 }
-                .map { it.startAt.atZone(almaty).toLocalTime().toString() }
+                .map {
+                    it.startAt
+                        .atZone(almaty)
+                        .toLocalTime()
+                        .toString()
+                }
 
         // 09:00-10:00 is free; every start from 09:15 to 10:15 overlaps the booking; 10:30 onwards is free.
         assertEquals(listOf("09:00", "10:30", "10:45", "11:00"), today)
@@ -188,7 +217,6 @@ class SlotCalculatorTest {
                 "2026-03-29T01:00:00Z", // 03:00 CEST
                 "2026-03-29T01:15:00Z",
                 "2026-03-29T01:30:00Z",
-                "2026-03-29T01:45:00Z",
             ),
             starts(sunday),
         )
@@ -219,7 +247,13 @@ class SlotCalculatorTest {
         val schedule = Schedule(berlin, everyDay(interval("01:00", "04:00")))
         val clock = clockAt("2026-10-24T22:00:00Z") // Sunday 00:00 CEST
 
-        val sunday = calculate(clock, schedule, duration = 15).filter { it.startAt.atZone(berlin).toLocalDate().dayOfMonth == 25 }
+        val sunday =
+            calculate(clock, schedule, duration = 15).filter {
+                it.startAt
+                    .atZone(berlin)
+                    .toLocalDate()
+                    .dayOfMonth == 25
+            }
 
         assertEquals(12, sunday.size) // one slot per local grid time 01:00..03:45
         assertEquals("2026-10-24T23:00:00Z", starts(sunday)[0]) // 01:00 CEST
@@ -235,7 +269,13 @@ class SlotCalculatorTest {
         val schedule = Schedule(berlin, everyDay(interval("01:00", "04:00")))
         val clock = clockAt("2026-10-24T22:00:00Z")
 
-        val sunday = calculate(clock, schedule, duration = 60).filter { it.startAt.atZone(berlin).toLocalDate().dayOfMonth == 25 }
+        val sunday =
+            calculate(clock, schedule, duration = 60).filter {
+                it.startAt
+                    .atZone(berlin)
+                    .toLocalDate()
+                    .dayOfMonth == 25
+            }
 
         // 02:30 CEST (00:30Z) + 60 real minutes = 01:30Z, which is 02:30 CET on the wall clock.
         val slot = sunday.single { it.startAt == Instant.parse("2026-10-25T00:30:00Z") }

@@ -50,8 +50,20 @@ class SlotsTest {
 
             assertEquals(320, items.size)
             assertEquals(setOf("startAt", "endAt"), items.first().jsonObject.keys)
-            assertEquals("2026-11-02T04:00:00Z", items.first().jsonObject["startAt"]!!.jsonPrimitive.content)
-            assertEquals("2026-11-02T04:15:00Z", items.first().jsonObject["endAt"]!!.jsonPrimitive.content)
+            assertEquals(
+                "2026-11-02T04:00:00Z",
+                items
+                    .first()
+                    .jsonObject["startAt"]!!
+                    .jsonPrimitive.content,
+            )
+            assertEquals(
+                "2026-11-02T04:15:00Z",
+                items
+                    .first()
+                    .jsonObject["endAt"]!!
+                    .jsonPrimitive.content,
+            )
             assertTrue(items.starts().all { it.endsWith("Z") })
             assertEquals(items.starts().sorted(), items.starts())
         }
@@ -75,7 +87,13 @@ class SlotsTest {
 
             val items = slots(shortId)
 
-            assertEquals("2026-11-02T05:00:00Z", items.first().jsonObject["startAt"]!!.jsonPrimitive.content)
+            assertEquals(
+                "2026-11-02T05:00:00Z",
+                items
+                    .first()
+                    .jsonObject["startAt"]!!
+                    .jsonPrimitive.content,
+            )
         }
 
     @Test
