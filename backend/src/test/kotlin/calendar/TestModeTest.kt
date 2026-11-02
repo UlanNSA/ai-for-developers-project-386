@@ -1,6 +1,7 @@
 package calendar
 
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -18,6 +19,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private const val TEST_HEADER = "X-Calendar-Test"
 
 class TestModeTest {
     private val testEnv = mapOf("CALENDAR_TEST_MODE" to "true", "CALENDAR_FIXED_NOW" to "2026-11-02T06:00:00Z")
@@ -74,7 +77,7 @@ class TestModeTest {
             assertEquals(3, typeTitles().size)
             assertEquals(1, Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray.size)
 
-            val reset = client.post("/__test__/reset")
+            val reset = resetState()
 
             assertEquals(HttpStatusCode.NoContent, reset.status)
             assertEquals(listOf("Знакомство", "Консультация"), typeTitles())
@@ -138,10 +141,48 @@ class TestModeTest {
             .jsonObject["startAt"]!!
             .jsonPrimitive.content
 
-    private suspend fun ApplicationTestBuilder.setClock(body: String) =
-        client.post("/__test__/clock") {
-            contentType(ContentType.Application.Json)
-            setBody(body)
+    private suspend fun ApplicationTestBuilder.setClock(
+        body: String,
+        withHeader: Boolean = true,
+    ) = client.post("/__test__/clock") {
+        if (withHeader) header(TEST_HEADER, "1")
+        contentType(ContentType.Application.Json)
+        setBody(body)
+    }
+
+    private suspend fun ApplicationTestBuilder.resetState(withHeader: Boolean = true) =
+        client.post("/__test__/reset") {
+            if (withHeader) header(TEST_HEADER, "1")
+        }
+
+    @Test
+    fun testRoutesRejectRequestsWithoutTheCustomHeader() =
+        testApplication {
+            application { module(AppConfig.fromEnvironment(testEnv)) }
+            val before = typeTitles()
+            client.post("/api/meeting-types") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"title":"Лишний","durationMinutes":45}""")
+            }
+
+            // A cross-origin "simple" POST from a web page cannot add a custom header, so it is refused.
+            val reset = resetState(withHeader = false)
+            val clock = setClock("""{"now":"2026-11-03T06:00:00Z"}""", withHeader = false)
+
+            assertEquals(HttpStatusCode.Forbidden, reset.status)
+            assertEquals(HttpStatusCode.Forbidden, clock.status)
+            assertTrue(reset.bodyAsText().contains(TEST_HEADER))
+            assertEquals(before.size + 1, typeTitles().size)
+            assertEquals("2026-11-02T06:15:00Z", firstSlotStart())
+        }
+
+    @Test
+    fun testRoutesAreStillMissingInNormalModeEvenWithTheHeader() =
+        testApplication {
+            application { module(AppConfig.fromEnvironment(emptyMap())) }
+
+            assertEquals(HttpStatusCode.NotFound, resetState().status)
+            assertEquals(HttpStatusCode.NotFound, setClock("""{"now":"2026-11-03T06:00:00Z"}""").status)
         }
 
     @Test
@@ -169,7 +210,7 @@ class TestModeTest {
             assertEquals(HttpStatusCode.NoContent, setClock("""{"now":"2026-11-03T06:00:00Z"}""").status)
             assertEquals("2026-11-03T06:15:00Z", firstSlotStart())
 
-            assertEquals(HttpStatusCode.NoContent, client.post("/__test__/reset").status)
+            assertEquals(HttpStatusCode.NoContent, resetState().status)
             assertEquals("2026-11-02T06:15:00Z", firstSlotStart())
         }
 

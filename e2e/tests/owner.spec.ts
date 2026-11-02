@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, test, TEST_HEADERS } from './fixtures';
 
 // Frozen "now" is Monday 2026-11-02 06:00Z = 11:00 Asia/Almaty (UTC+5, the Owner's zone). The browser of these
 // tests runs in Asia/Tbilisi (UTC+4), so every Owner-zone time below differs from the browser zone by an hour:
@@ -183,7 +183,10 @@ test.describe('Owner upcoming bookings', () => {
     await expect(page.locator('ul.owner-bookings li')).toHaveCount(2);
 
     // 2026-11-03T04:01:00Z = 09:01 Almaty: the 09:00 meeting has started, the 14:00 one has not.
-    const moved = await request.post(`${BACKEND}/__test__/clock`, { data: { now: '2026-11-03T04:01:00Z' } });
+    const moved = await request.post(`${BACKEND}/__test__/clock`, {
+      headers: TEST_HEADERS,
+      data: { now: '2026-11-03T04:01:00Z' },
+    });
     expect(moved.status()).toBe(204);
     await page.getByRole('button', { name: 'Обновить' }).click();
 
@@ -193,7 +196,7 @@ test.describe('Owner upcoming bookings', () => {
     await expect(page.getByText('Анна Гость')).toHaveCount(0);
 
     // Once nothing is upcoming, the empty state returns.
-    await request.post(`${BACKEND}/__test__/clock`, { data: { now: '2026-11-03T09:00:00Z' } });
+    await request.post(`${BACKEND}/__test__/clock`, { headers: TEST_HEADERS, data: { now: '2026-11-03T09:00:00Z' } });
     await page.getByRole('button', { name: 'Обновить' }).click();
     await expect(page.getByText('Предстоящих встреч нет')).toBeVisible();
   });

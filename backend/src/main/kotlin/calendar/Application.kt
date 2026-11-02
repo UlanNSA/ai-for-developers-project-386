@@ -88,6 +88,22 @@ data class ApiError(
 
 private val log = LoggerFactory.getLogger("calendar.Application")
 
+/**
+ * Custom header every test-mode request must carry. A web page cannot add it to a cross-origin "simple"
+ * request, so a page the developer visits cannot reset the state or move the clock.
+ */
+const val TEST_REQUEST_HEADER = "X-Calendar-Test"
+
+/** Responds 403 and returns false when the test-mode header is missing. */
+private suspend fun ApplicationCall.requireTestHeader(): Boolean {
+    if (request.headers[TEST_REQUEST_HEADER] != null) return true
+    respond(
+        HttpStatusCode.Forbidden,
+        ApiError(code = "FORBIDDEN", message = "Test routes require the $TEST_REQUEST_HEADER header"),
+    )
+    return false
+}
+
 fun main() {
     val config = AppConfig.fromEnvironment()
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
@@ -121,10 +137,12 @@ fun Application.module(
         config.testMode?.let { testMode ->
             // Not part of the API contract: state isolation and time control for browser E2E tests.
             post("/__test__/reset") {
+                if (!call.requireTestHeader()) return@post
                 listOf(meetingTypes, bookings, testMode.clock).filterIsInstance<Resettable>().forEach { it.reset() }
                 call.respond(HttpStatusCode.NoContent)
             }
             post("/__test__/clock") {
+                if (!call.requireTestHeader()) return@post
                 val now =
                     try {
                         val text = (Json.parseToJsonElement(call.receiveText()) as? JsonObject)?.get("now")
