@@ -1,0 +1,25 @@
+# Render Blueprint: one free Docker web service built from the root Dockerfile.
+# Render Free: 512 MB RAM, spins down after 15 minutes without traffic, ephemeral filesystem.
+# The app keeps all data in memory, so meeting types and bookings are lost on every restart and spin-down.
+# No secrets are needed. PORT is set by Render and read by the app.
+services:
+  - type: web
+    name: calendar
+    runtime: docker
+    plan: free
+    region: frankfurt # cannot be changed after creation
+    branch: master
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Answers 200 as soon as Ktor serves HTTP (also tells Render when a deploy is ready).
+    healthCheckPath: /api/health
+    # Deploy on every commit to master.
+    autoDeployTrigger: commit
+    # Optional owner texts (defaults are used when unset); public demo: use fictional data only.
+    # envVars:
+    #   - key: OWNER_NAME
+    #     value: Владелец календаря
+    #   - key: OWNER_BIO
+    #     value: Выберите удобное время для встречи
+    #   - key: OWNER_TIME_ZONE
+    #     value: Asia/Almaty

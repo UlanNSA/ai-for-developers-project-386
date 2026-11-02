@@ -1,0 +1,13 @@
+# Allowlist: the image build needs only the frontend, the backend and the committed OpenAPI contract.
+*
+!api/openapi/openapi.yaml
+!frontend
+!backend
+
+# Never send local build output or dependencies into the build context.
+**/node_modules
+**/build
+**/.gradle
+**/.kotlin
+frontend/dist
+frontend/src/api/generated
