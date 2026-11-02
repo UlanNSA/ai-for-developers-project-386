@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/UlanNSA/ai-for-developers-project-386/compare/v0.2.0...v0.3.0) (2026-11-02)
+
+
+### Features
+
+* **backend:** serve the built frontend from STATIC_DIR ([26dfffb](https://github.com/UlanNSA/ai-for-developers-project-386/commit/26dfffb4485c4b71d4c4ce89d2c658297ebc4f14)), closes [#34](https://github.com/UlanNSA/ai-for-developers-project-386/issues/34)
+* Docker image, Render Blueprint and smoke script ([1acf9f2](https://github.com/UlanNSA/ai-for-developers-project-386/commit/1acf9f2cdb34d8c88dddb871501cd5d0395c372e)), closes [#34](https://github.com/UlanNSA/ai-for-developers-project-386/issues/34)
+
 ## [0.2.0](https://github.com/UlanNSA/ai-for-developers-project-386/compare/v0.1.0...v0.2.0) (2026-11-02)
 
 
