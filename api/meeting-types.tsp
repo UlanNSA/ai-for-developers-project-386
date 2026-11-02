@@ -74,12 +74,6 @@ model MeetingTypeCreatedResponse {
   @body body: MeetingType;
 }
 
-/** MALFORMED_REQUEST (not valid JSON) or VALIDATION_ERROR (rules, unknown fields; with fieldErrors). */
-model BadRequestResponse {
-  @statusCode _: 400;
-  @body body: ApiError;
-}
-
 /** Creates a meeting type; titles may repeat. */
 @post
 @route("/api/meeting-types")
