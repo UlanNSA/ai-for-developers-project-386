@@ -42,6 +42,19 @@ data class MeetingTypeResponse(
     val durationMinutes: Int,
 )
 
+@Serializable
+data class BookingResponse(
+    val id: String,
+    val meetingTypeId: String,
+    val startAt: String,
+    val endAt: String,
+    val guestName: String,
+    val guestEmail: String,
+)
+
+private fun Booking.toResponse() =
+    BookingResponse(id.toString(), meetingTypeId.toString(), startAt.toString(), endAt.toString(), guestName, guestEmail)
+
 private fun MeetingType.toResponse() = MeetingTypeResponse(id.toString(), title, description, durationMinutes)
 
 /** Both instants are UTC ISO 8601 with a trailing `Z`. */
@@ -84,9 +97,11 @@ fun Application.module(
     config: AppConfig,
     meetingTypes: MeetingTypeRepository = InMemoryMeetingTypeRepository.withInitialTypes(),
     clock: Clock = Clock.systemUTC(),
-    // Bookings do not exist yet: nothing is busy until the booking storage is added.
-    busyTimes: BusyTimeSource = BusyTimeSource { emptyList() },
+    bookings: BookingRepository = InMemoryBookingRepository(),
+    // Slot calculation reads busy time from here; by default the bookings themselves (tests may override).
+    busyTimes: BusyTimeSource = bookings,
 ) {
+    val bookingService = BookingService(clock, config.schedule, bookings)
     install(ContentNegotiation) {
         // Optional contract fields (e.g. ApiError.fieldErrors) must be absent, not null.
         json(Json { explicitNulls = false })
@@ -139,6 +154,61 @@ fun Application.module(
                     val draft = result.value
                     val created = meetingTypes.add(draft.title, draft.description, draft.durationMinutes)
                     call.respond(HttpStatusCode.Created, created.toResponse())
+                }
+            }
+        }
+        post("/api/bookings") {
+            val body =
+                try {
+                    Json.parseToJsonElement(call.receiveText())
+                } catch (e: SerializationException) {
+                    log.debug("Malformed JSON in request body", e)
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiError(code = "MALFORMED_REQUEST", message = "Некорректный JSON в теле запроса"),
+                    )
+                    return@post
+                }
+            val draft =
+                when (val result = validateBookingInput(body)) {
+                    is Validated.Invalid -> {
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            ApiError(
+                                code = "VALIDATION_ERROR",
+                                message = "Некорректные данные запроса",
+                                fieldErrors = result.errors,
+                            ),
+                        )
+                        return@post
+                    }
+
+                    is Validated.Valid -> {
+                        result.value
+                    }
+                }
+            val meetingType = meetingTypes.find(draft.meetingTypeId)
+            if (meetingType == null) {
+                call.respondMeetingTypeNotFound()
+                return@post
+            }
+            when (val outcome = bookingService.create(meetingType, draft.startAt, draft.guestName, draft.guestEmail)) {
+                is BookingOutcome.Created -> {
+                    call.respond(HttpStatusCode.Created, outcome.booking.toResponse())
+                }
+
+                BookingOutcome.InvalidSlot -> {
+                    call.respond(
+                        HttpStatusCode.UnprocessableEntity,
+                        ApiError(code = "INVALID_SLOT", message = "Это время недоступно для записи"),
+                    )
+                }
+
+                BookingOutcome.SlotTaken -> {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ApiError(code = "SLOT_TAKEN", message = "Это время уже занято"),
+                    )
                 }
             }
         }

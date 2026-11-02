@@ -4,6 +4,54 @@ info:
   version: 0.0.0
 tags: []
 paths:
+  /api/bookings:
+    post:
+      operationId: createBooking
+      description: Creates a confirmed booking. Checks run in the order 400, 404, 422, 409.
+      parameters: []
+      responses:
+        '201':
+          description: The booking was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: MALFORMED_REQUEST (not valid JSON) or VALIDATION_ERROR (rules, unknown fields; with fieldErrors).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The meeting type does not exist (an unknown or malformed id gives the same answer).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: 'The start is valid but overlaps a confirmed booking of any meeting type: SLOT_TAKEN.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: 'The start is not one the schedule, grid, horizon or current time would ever offer: INVALID_SLOT.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Unhandled server failure; the body never contains internal details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
   /api/health:
     get:
       operationId: getHealth
@@ -156,6 +204,60 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldError'
+    Booking:
+      type: object
+      required:
+        - id
+        - meetingTypeId
+        - startAt
+        - endAt
+        - guestName
+        - guestEmail
+      properties:
+        id:
+          type: string
+          format: uuid
+        meetingTypeId:
+          type: string
+          format: uuid
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+      description: A confirmed booking. `endAt` is computed by the backend as `startAt + durationMinutes`.
+    CreateBookingRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - startAt
+        - guestName
+        - guestEmail
+      properties:
+        meetingTypeId:
+          type: string
+          format: uuid
+        startAt:
+          type: string
+          format: date-time
+          description: UTC instant ending with `Z`, a start the schedule offers for the meeting type.
+        guestName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 1 to 100 characters after trim.
+        guestEmail:
+          type: string
+          maxLength: 254
+          description: Up to 254 characters; exactly one `@`, a non-empty local part, a domain with a dot. Case is preserved.
+      description: |-
+        Body of POST /api/bookings. Unknown fields (including a client `endAt`) and a `startAt` that is not
+        UTC with a trailing `Z` are rejected with 400. Name length is counted after trim in Unicode code points.
     CreateMeetingTypeRequest:
       type: object
       required:

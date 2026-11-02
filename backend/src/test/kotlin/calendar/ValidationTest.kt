@@ -114,4 +114,58 @@ class ValidationTest {
         assertEquals(1, trimmedLength(" $smile "))
         assertEquals(3, trimmedLength("a${smile}b"))
     }
+
+    private val typeId = "11111111-1111-4111-8111-111111111111"
+
+    private fun booking(
+        name: String = "Анна",
+        email: String = "a@b.c",
+        startAt: String = "2026-11-02T04:00:00Z",
+    ) = validateBookingInput(
+        Json.parseToJsonElement(
+            """{"meetingTypeId":"$typeId","startAt":"$startAt","guestName":"$name","guestEmail":"$email"}""",
+        ),
+    )
+
+    private fun assertBookingInvalid(
+        result: Validated<BookingDraft>,
+        field: String,
+    ) {
+        assertTrue(result is Validated.Invalid, "expected invalid but was $result")
+        assertEquals(listOf(field), result.errors.map { it.field })
+    }
+
+    @Test
+    fun guestNameBoundsAreCodePointsAfterTrim() {
+        assertBookingInvalid(booking(name = "   "), "guestName")
+        assertTrue(booking(name = " x ") is Validated.Valid)
+        assertTrue(booking(name = smile.repeat(100)) is Validated.Valid)
+        assertBookingInvalid(booking(name = smile.repeat(101)), "guestName")
+    }
+
+    @Test
+    fun emailFormatAndLength() {
+        for (bad in listOf("", "ab.c", "@b.c", "a@", "a@b", "a@@b.c", "a@b@c.d")) {
+            assertBookingInvalid(booking(email = bad), "guestEmail")
+        }
+        val local = "a".repeat(254 - "@b.c".length)
+        assertTrue(booking(email = "$local@b.c") is Validated.Valid)
+        assertBookingInvalid(booking(email = "a$local@b.c"), "guestEmail")
+    }
+
+    @Test
+    fun emailCaseIsPreservedAndSurroundingSpacesTrimmed() {
+        val result = booking(email = "  Anna@Example.COM ")
+        assertTrue(result is Validated.Valid)
+        assertEquals("Anna@Example.COM", result.value.guestEmail)
+    }
+
+    @Test
+    fun startAtMustBeUtcWithZ() {
+        assertTrue(booking(startAt = "2026-11-02T04:00:00Z") is Validated.Valid)
+        assertBookingInvalid(booking(startAt = "2026-11-02T09:00:00+05:00"), "startAt")
+        assertBookingInvalid(booking(startAt = "2026-11-02T04:00:00+00:00"), "startAt")
+        assertBookingInvalid(booking(startAt = "2026-11-02"), "startAt")
+        assertBookingInvalid(booking(startAt = "garbage Z"), "startAt")
+    }
 }
