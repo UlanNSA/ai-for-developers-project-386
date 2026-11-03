@@ -1,0 +1,11 @@
+{
+  "comment": "Render MCP configuration template. Copy this file to your AI tool's MCP settings and set RENDER_API_KEY in your environment. Never commit a real API key.",
+  "mcpServers": {
+    "render": {
+      "url": "https://mcp.render.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${RENDER_API_KEY}"
+      }
+    }
+  }
+}
